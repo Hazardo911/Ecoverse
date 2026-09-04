@@ -1,0 +1,22 @@
+export function createEcoWorld(canvas){
+  if(!canvas||!window.THREE)return null;
+  const THREE=window.THREE,reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,mobile=innerWidth<768;
+  const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x0b1812,.045);
+  const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,100);camera.position.set(0,4.2,13);
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:!mobile,alpha:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.25:1.75));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+  scene.add(new THREE.HemisphereLight(0xc9e0b5,0x15231a,2.3));const sun=new THREE.DirectionalLight(0xffefc1,3.1);sun.position.set(-5,10,5);scene.add(sun);
+  const world=new THREE.Group();world.position.set(3.5,-1.6,0);scene.add(world);
+  const ground=new THREE.Mesh(new THREE.SphereGeometry(7,64,32,0,Math.PI*2,0,1.35),new THREE.MeshStandardMaterial({color:0x213b27,roughness:1}));ground.scale.y=.25;world.add(ground);
+  const trunkMat=new THREE.MeshStandardMaterial({color:0x3a3022,roughness:1}),leafMat=new THREE.MeshStandardMaterial({color:0x5e7c48,roughness:.9}),brightLeaf=new THREE.MeshStandardMaterial({color:0x88a957,roughness:.85});
+  const makeTree=(x,z,s=1)=>{const tree=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.12*s,.22*s,2.1*s,7),trunkMat);trunk.position.y=1*s;tree.add(trunk);[[0,2.15,0,.9],[-.5,1.95,.05,.65],[.48,2,.12,.72],[0,2.7,0,.68]].forEach((v,i)=>{const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(v[3]*s,i===0?1:0),i%2?brightLeaf:leafMat);crown.position.set(v[0]*s,v[1]*s,v[2]*s);crown.rotation.set(i,.4*i,0);tree.add(crown)});tree.position.set(x,0,z);world.add(tree);return tree};
+  const central=makeTree(0,0,1.45);[[-3,-1,.75],[-2,2,.6],[2.5,-1,.7],[3,2,.55],[1.6,2.7,.48],[-4,2.4,.5]].slice(0,mobile?4:6).forEach(v=>makeTree(...v));
+  const rockMat=new THREE.MeshStandardMaterial({color:0x667066,roughness:1});for(let i=0;i<(mobile?8:16);i++){const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.12+Math.random()*.2,0),rockMat);const a=Math.random()*Math.PI*2,d=1.7+Math.random()*4;r.position.set(Math.cos(a)*d,.05,Math.sin(a)*d);r.scale.y=.65;world.add(r)}
+  const river=new THREE.Mesh(new THREE.PlaneGeometry(2,8,12,12),new THREE.MeshPhysicalMaterial({color:0x537f78,roughness:.3,metalness:.1,transparent:true,opacity:.85}));river.rotation.x=-Math.PI/2;river.rotation.z=.2;river.position.set(3,.16,0);world.add(river);
+  const count=mobile?65:160,pos=new Float32Array(count*3);for(let i=0;i<count;i++){pos[i*3]=(Math.random()-.5)*18;pos[i*3+1]=Math.random()*8;pos[i*3+2]=(Math.random()-.5)*12}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));const particles=new THREE.Points(geo,new THREE.PointsMaterial({color:0xc9f66f,size:.035,transparent:true,opacity:.65}));scene.add(particles);
+  const leaves=[];const leafGeo=new THREE.PlaneGeometry(.11,.055),leafMaterial=new THREE.MeshBasicMaterial({color:0xa8bd67,side:THREE.DoubleSide});for(let i=0;i<(mobile?8:24);i++){const leaf=new THREE.Mesh(leafGeo,leafMaterial);leaf.position.set((Math.random()-.5)*12,Math.random()*7-1,(Math.random()-.5)*8);leaf.userData.speed=.003+Math.random()*.008;scene.add(leaf);leaves.push(leaf)}
+  const mouse={x:0,y:0};addEventListener('pointermove',e=>{mouse.x=e.clientX/innerWidth-.5;mouse.y=e.clientY/innerHeight-.5},{passive:true});
+  const clock=new THREE.Clock();let raf;function render(){const t=clock.getElapsedTime();if(!reduced){camera.position.x+=(mouse.x*.6-camera.position.x)*.015;camera.position.y+=(4.2-mouse.y*.35-camera.position.y)*.015;central.rotation.z=Math.sin(t*.65)*.012;particles.rotation.y=t*.012;leaves.forEach((l,i)=>{l.position.y-=l.userData.speed;l.position.x+=Math.sin(t+i)*.0015;l.rotation.z+=.008;if(l.position.y<-1)l.position.y=7})}camera.lookAt(2.5,1.1,0);renderer.render(scene,camera);raf=requestAnimationFrame(render)}render();
+  const resize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<768?1.25:1.75))};addEventListener('resize',resize);
+  return {camera,world,central,renderer,destroy(){cancelAnimationFrame(raf);removeEventListener('resize',resize);renderer.dispose()}};
+}
+
