@@ -1,1 +1,32 @@
-import{getUser}from'./state.js';const base=[['Aayush',2450,5,31],['Aarav',2120,5,28],['Riya',1980,4,25],['Kabir',1760,4,22],['Ananya',1540,4,20],['Mira',1325,3,18],['Vihaan',1180,3,16],['Ishita',940,3,14]];const boards={global:base,friends:[base[0],base[2],base[4],base[6]],week:[base[2],base[1],base[5],base[0],base[7]]};const user=getUser();if(user.ecoPoints>0)base.push(['You',user.ecoPoints,user.forestLevel,user.completedChallenges.length]);const list=document.querySelector('#rank-list');function render(type){const rows=[...boards[type]].sort((a,b)=>type==='week'?0:b[1]-a[1]);list.innerHTML=rows.map((r,i)=>`<article class="rank-row glass-panel ${i<3?'top':''}"><span class="rank">${String(i+1).padStart(2,'0')}</span><div class="person"><span class="avatar">${r[0][0]}</span><strong>${r[0]}</strong></div><div><strong>${r[1].toLocaleString()}</strong><br><small>Eco points</small></div><div><strong>Level ${r[2]}</strong><br><small>Forest</small></div><div><strong>${r[3]}</strong><br><small>Actions</small></div></article>`).join('');list.animate([{opacity:.35,transform:'translateY(12px)'},{opacity:1,transform:'none'}],{duration:350})}document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelector('.tab.active').classList.remove('active');b.classList.add('active');render(b.dataset.board)});render('global');export const getLeaderboard=()=>base;
+import "./shell.js";
+import { api, escapeHTML, errorState } from "./api.js";
+const list = document.querySelector("#rank-list");
+let request = 0;
+async function render(period) {
+  const current = ++request;
+  list.innerHTML = '<p class="loading-state">Gathering the forest…</p>';
+  try {
+    const rows = await api("/leaderboard?period=" + period);
+    if (current !== request) return;
+    list.innerHTML = rows.length
+      ? rows
+          .map(
+            (r, i) =>
+              `<article class="rank-row ${i < 3 ? "top" : ""}"><span class="rank">${String(i + 1).padStart(2, "0")}</span><div class="person"><span class="avatar">${escapeHTML(r.name[0])}</span><strong>${escapeHTML(r.name)}</strong></div><div><strong>${r.points.toLocaleString()}</strong><small>Eco Points</small></div><div><strong>Level ${r.forestLevel}</strong><small>Forest</small></div><div><strong>${r.challenges}</strong><small>Actions</small></div></article>`,
+          )
+          .join("")
+      : '<div class="empty-state"><h3>Be the first to grow.</h3><p>No recorded actions in this period yet.</p><a class="button button-primary" href="challenges.html">Choose a challenge ↗</a></div>';
+  } catch (e) {
+    if (current === request) errorState(list, e);
+  }
+}
+document.querySelectorAll("[data-board]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      document
+        .querySelectorAll("[data-board]")
+        .forEach((x) => x.classList.toggle("active", x === b));
+      render(b.dataset.board);
+    }),
+);
+render("global");

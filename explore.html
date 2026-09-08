@@ -1,1 +1,47 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Explore — EcoVerse</title><link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/responsive.css"><link rel="stylesheet" href="css/pages.css"></head><body class="inner-body" data-page="explore"><main class="inner-main"><section class="inner-hero"><p class="inner-kicker">Interactive field guide</p><h1>Explore <em>your world.</em></h1><p class="inner-intro">Every living system is connected. Touch a signal in the landscape to reveal the actions that help it thrive.</p></section><section class="page-section"><div class="filters" id="topic-filters"></div><div class="explore-layout"><div class="biome glass-panel"><div class="biome-sun"></div><div class="biome-hills"></div><div class="hotspots" id="hotspots"></div></div><aside class="info-panel glass-panel" id="topic-panel"></aside></div></section></main><script type="module" src="js/shell.js"></script><script type="module" src="js/explore.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#10221c" />
+    <title>Explore — EcoVerse</title>
+    <meta
+      name="description"
+      content="Grow a living digital forest through everyday sustainable actions."
+    />
+    <meta property="og:title" content="Explore — EcoVerse" />
+    <meta property="og:description" content="Your actions. Grow a world." />
+    <link rel="icon" href="public/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/ecoverse.css" />
+  </head>
+  <body data-page="explore">
+    <main id="main">
+      <section class="page-heading">
+        <p class="eyebrow">A CONNECTED WORLD</p>
+        <h1>Look closer.<br /><em>Everything is connected.</em></h1>
+        <p>
+          Explore the systems that keep our world alive—and the everyday choices
+          that help protect them.
+        </p>
+      </section>
+      <section class="content-section app-section">
+        <div class="filters" id="topic-filters"></div>
+        <div class="explore-layout">
+          <div class="explore-world">
+            <canvas
+              id="explore-world"
+              aria-label="Explore a woodland ecosystem"
+            ></canvas>
+          </div>
+          <aside id="topic-panel" aria-live="polite"></aside>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="js/explore.js"></script>
+  </body>
+</html>

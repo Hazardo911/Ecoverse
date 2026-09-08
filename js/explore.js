@@ -1,3 +1,61 @@
-const TOPICS={forest:{icon:'⌁',title:'Forest',copy:'Forests store carbon, shelter biodiversity, cool landscapes, and help regulate the water cycle.',stat:'48 lbs',label:'CO₂ absorbed by one mature tree each year'},water:{icon:'≈',title:'Water',copy:'Fresh water connects every ecosystem. Using less protects rivers and reduces the energy used to treat and move it.',stat:'8 min',label:'A shorter shower makes a measurable difference'},wildlife:{icon:'◉',title:'Wildlife',copy:'Healthy habitats create room for pollinators, birds, and countless species that keep ecosystems resilient.',stat:'75%',label:'Of food crops benefit from animal pollination'},energy:{icon:'⌁',title:'Energy',copy:'Efficiency is immediate climate action. Every unused appliance switched off reduces avoidable demand.',stat:'1 action',label:'Can become a habit that compounds'},climate:{icon:'☼',title:'Climate',copy:'Daily choices matter most when they become culture—shared, repeated, and visible to others.',stat:'Together',label:'Individual momentum becomes collective change'},waste:{icon:'♻',title:'Waste',copy:'Reducing and reusing comes before recycling. The best piece of waste is the one never created.',stat:'1/3',label:'Of food produced globally is lost or wasted'}};
-const filters=document.querySelector('#topic-filters'),hotspots=document.querySelector('#hotspots'),panel=document.querySelector('#topic-panel');Object.keys(TOPICS).forEach((key,i)=>{filters.insertAdjacentHTML('beforeend',`<button class="filter ${i?'':'active'}" data-topic="${key}">${TOPICS[key].title}</button>`);hotspots.insertAdjacentHTML('beforeend',`<button data-topic="${key}" aria-label="Explore ${TOPICS[key].title}"></button>`)});
-function select(key){const t=TOPICS[key];document.querySelectorAll('[data-topic]').forEach(x=>x.classList.toggle('active',x.dataset.topic===key));panel.innerHTML=`<div class="big-icon">${t.icon}</div><span class="inner-kicker">Ecosystem signal</span><h2>${t.title}</h2><p>${t.copy}</p><div class="info-stat"><strong>${t.stat}</strong><span>${t.label}</span></div>`;const hue={forest:95,water:175,wildlife:65,energy:45,climate:20,waste:125}[key];document.querySelector('.biome').style.filter=`hue-rotate(${hue-95}deg)`;panel.animate([{opacity:.25,transform:'translateX(20px)'},{opacity:1,transform:'none'}],{duration:400})}document.querySelectorAll('[data-topic]').forEach(x=>x.onclick=()=>select(x.dataset.topic));select('forest');export const ecosystemTopics=Object.keys(TOPICS);
+import "./shell.js";
+import { createWorld } from "./world.js";
+const topics = {
+  forest: [
+    "The roots of everything.",
+    "Forests support habitats, store carbon, and help regulate water. Protecting existing trees matters alongside planting new ones.",
+    "Care for a native plant.",
+  ],
+  water: [
+    "Every drop connects us.",
+    "Rivers connect landscapes. Using less water reduces pressure on freshwater supplies and the energy needed to treat and move it.",
+    "Shorten your shower.",
+  ],
+  wildlife: [
+    "Make room for life.",
+    "Native plants offer food and shelter for local wildlife. Small connected habitats help pollinators and birds move through our cities.",
+    "Grow pollinator-friendly plants.",
+  ],
+  energy: [
+    "Use only what you need.",
+    "Small reductions in wasted energy add up when repeated. Turn off unused equipment and choose efficient routines.",
+    "Switch off idle devices.",
+  ],
+  waste: [
+    "Keep good things going.",
+    "Preventing waste starts before the bin. Reuse containers, repair useful objects, and plan meals around what you already have.",
+    "Save a meal from waste.",
+  ],
+  climate: [
+    "Consistency becomes change.",
+    "Climate action includes the systems we support and the habits we repeat. Track meaningful choices and make room to improve over time.",
+    "Choose a lower-emission journey.",
+  ],
+};
+const filters = document.querySelector("#topic-filters"),
+  panel = document.querySelector("#topic-panel");
+const world = createWorld(document.querySelector("#explore-world"), {
+  onSelect: (d) =>
+    select(
+      d.kind === "river" ? "water" : d.kind === "tree" ? "forest" : "wildlife",
+    ),
+});
+filters.innerHTML = Object.keys(topics)
+  .map((key) => `<button data-topic="${key}">${key}</button>`)
+  .join("");
+function select(key) {
+  const [title, copy, action] = topics[key];
+  document.querySelectorAll("[data-topic]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.topic === key);
+    b.setAttribute("aria-pressed", String(b.dataset.topic === key));
+  });
+  panel.innerHTML = `<p class="eyebrow">FIELD GUIDE / ${key}</p><h2>${title}</h2><p>${copy}</p><a class="text-link" href="challenges.html">${action} ↗</a>`;
+  world?.setTime(
+    key === "climate" ? "sunset" : key === "wildlife" ? "night" : "day",
+  );
+}
+filters
+  .querySelectorAll("button")
+  .forEach((b) => (b.onclick = () => select(b.dataset.topic)));
+select("forest");
+addEventListener("pagehide", () => world?.destroy(), { once: true });

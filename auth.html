@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#10221c" />
+    <title>Sign in — EcoVerse</title>
+    <meta
+      name="description"
+      content="Grow a living digital forest through everyday sustainable actions."
+    />
+    <meta property="og:title" content="Sign in — EcoVerse" />
+    <meta property="og:description" content="Your actions. Grow a world." />
+    <link rel="icon" href="public/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/ecoverse.css" />
+  </head>
+  <body data-page="auth">
+    <main id="main">
+      <section class="page-heading">
+        <p class="eyebrow">YOUR WORLD STARTS HERE</p>
+        <h1>Put down<br /><em>your first roots.</em></h1>
+        <p>
+          Create your account to save progress and grow your personal ecosystem.
+        </p>
+      </section>
+      <section class="content-section app-section">
+        <form id="auth-form" class="auth-form">
+          <div class="filters">
+            <button type="button" class="active" data-mode="register">
+              Create account</button
+            ><button type="button" data-mode="login">Sign in</button>
+          </div>
+          <label id="name-field"
+            >Your name<input
+              name="name"
+              autocomplete="name"
+              minlength="2"
+              maxlength="80"
+              required /></label
+          ><label
+            >Email<input
+              name="email"
+              type="email"
+              autocomplete="email"
+              required /></label
+          ><label
+            >Password<input
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              minlength="10"
+              maxlength="128"
+              required
+          /></label>
+          <p class="field-note">Use at least 10 characters.</p>
+          <p id="auth-error" role="alert"></p>
+          <button class="button button-dark" type="submit">
+            Create my account ↗
+          </button>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="js/auth.js"></script>
+  </body>
+</html>

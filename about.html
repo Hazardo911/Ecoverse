@@ -1,1 +1,82 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Why EcoVerse?</title><link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/responsive.css"><link rel="stylesheet" href="css/pages.css"></head><body class="inner-body" data-page="about"><main class="inner-main"><section class="inner-hero"><p class="inner-kicker">The story beneath the forest</p><h1>Why <em>EcoVerse?</em></h1><p class="inner-intro">People know sustainability matters. The challenge isn't awareness—it's consistency. EcoVerse turns intention into a world you can see.</p></section><section class="page-section"><div class="timeline"><article class="story-step"><b>01 / Awareness</b><h2>Notice.</h2><p>Change begins when invisible consequences become part of the picture.</p></article><article class="story-step"><b>02 / Action</b><h2>Begin small.</h2><p>Simple challenges turn climate-scale thinking into something possible today.</p></article><article class="story-step"><b>03 / Reward</b><h2>Feel progress.</h2><p>Eco Points make consistency tangible without losing sight of the purpose.</p></article><article class="story-step"><b>04 / Growth</b><h2>Watch it live.</h2><p>Your virtual forest responds, evolves, and remembers each better choice.</p></article><article class="story-step"><b>05 / Impact</b><h2>See the whole.</h2><p>Individual habits gather into a story of sustained environmental momentum.</p></article></div><div class="about-end"><h2>One action can start<br><em>an ecosystem.</em></h2><a class="button button-primary" href="challenges.html">Start growing <span>↗</span></a></div></section></main><script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script><script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script><script type="module" src="js/shell.js"></script><script type="module">gsap.registerPlugin(ScrollTrigger);gsap.utils.toArray('.story-step').forEach(x=>gsap.from(x,{opacity:0,y:60,duration:1,scrollTrigger:{trigger:x,start:'top 80%'}}))</script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#10221c" />
+    <title>Our story — EcoVerse</title>
+    <meta
+      name="description"
+      content="Grow a living digital forest through everyday sustainable actions."
+    />
+    <meta property="og:title" content="Our story — EcoVerse" />
+    <meta property="og:description" content="Your actions. Grow a world." />
+    <link rel="icon" href="public/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/ecoverse.css" />
+  </head>
+  <body data-page="about">
+    <main id="main">
+      <section class="page-heading">
+        <p class="eyebrow">WHY ECOVERSE</p>
+        <h1>A better world<br /><em>begins with a habit.</em></h1>
+        <p>
+          We know sustainability matters. The difficult part is showing up,
+          again and again. EcoVerse makes that progress visible.
+        </p>
+      </section>
+      <section class="content-section">
+        <div class="about-timeline">
+          <article data-reveal>
+            <span>01 / Awareness</span>
+            <h2>Notice the possibility.</h2>
+            <p>Big change starts by seeing the choices already within reach.</p>
+          </article>
+          <article data-reveal>
+            <span>02 / Action</span>
+            <h2>Begin where you are.</h2>
+            <p>
+              Walk an errand. Save leftovers. Refill a bottle. Choose something
+              small enough to do today.
+            </p>
+          </article>
+          <article data-reveal>
+            <span>03 / Reward</span>
+            <h2>Feel the progress.</h2>
+            <p>
+              Every recorded action earns Eco Points. Your effort leaves a
+              visible trace.
+            </p>
+          </article>
+          <article data-reveal>
+            <span>04 / Growth</span>
+            <h2>Give it somewhere to live.</h2>
+            <p>
+              Seeds become trees. Trees become habitats. Your forest remembers
+              your consistency.
+            </p>
+          </article>
+          <article data-reveal>
+            <span>05 / Impact</span>
+            <h2>Keep the change going.</h2>
+            <p>
+              A living record helps you see the habits you are building, and
+              where to go next.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section class="final-cta">
+        <h2>One action can start<br /><em>an ecosystem.</em></h2>
+        <a class="button button-primary" href="challenges.html"
+          >Start growing ↗</a
+        >
+      </section>
+    </main>
+    <script type="module" src="js/shell.js"></script>
+  </body>
+</html>

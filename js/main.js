@@ -1,6 +1,97 @@
-import {createEcoWorld} from './three-scene.js';import {initAnimations} from './animations.js';import {getUser} from './state.js';
-const header=document.querySelector('.site-header'),toggle=document.querySelector('.menu-toggle'),progress=document.querySelector('.scroll-progress');
-toggle?.addEventListener('click',()=>{const open=header.classList.toggle('menu-open');toggle.setAttribute('aria-expanded',String(open))});
-addEventListener('scroll',()=>{header?.classList.toggle('scrolled',scrollY>20);const max=document.documentElement.scrollHeight-innerHeight;progress.style.width=`${max?scrollY/max*100:0}%`},{passive:true});
-if(matchMedia('(hover:hover)').matches){const dot=document.querySelector('.cursor-dot'),ring=document.querySelector('.cursor-ring');addEventListener('pointermove',e=>{dot.style.transform=`translate(${e.clientX}px,${e.clientY}px)`;ring.animate({transform:`translate(${e.clientX-17}px,${e.clientY-17}px)`},{duration:320,fill:'forwards'})});document.querySelectorAll('a,button,.tilt-card').forEach(el=>{el.addEventListener('mouseenter',()=>ring.classList.add('hover'));el.addEventListener('mouseleave',()=>ring.classList.remove('hover'))});document.querySelectorAll('.magnetic').forEach(el=>{el.addEventListener('mousemove',e=>{const r=el.getBoundingClientRect();el.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.08}px,${(e.clientY-r.top-r.height/2)*.08}px)`});el.addEventListener('mouseleave',()=>el.style.transform='')});document.querySelectorAll('.tilt-card').forEach(el=>{el.addEventListener('mousemove',e=>{const r=el.getBoundingClientRect();el.style.transform=`perspective(900px) rotateX(${-(e.clientY-r.top-r.height/2)/45}deg) rotateY(${(e.clientX-r.left-r.width/2)/45}deg)`});el.addEventListener('mouseleave',()=>el.style.transform='')})}
-const eco=createEcoWorld(document.querySelector('#eco-world'));const user=getUser();if(user.ecoPoints>0){const hud=document.querySelector('.preview-hud');hud.querySelector('strong').innerHTML=`${user.ecoPoints.toLocaleString()} <small>Eco points</small>`;hud.querySelector(':scope > span').textContent=`Forest level ${String(user.forestLevel).padStart(2,'0')}`;hud.querySelector('.progress-meta span:last-child').textContent=`${user.forestProgress}% to next level`;document.querySelector('.eco-progress i').dataset.progress=user.forestProgress;}initAnimations(eco);
+import "./shell.js";
+import { createWorld } from "./world.js";
+import { api, escapeHTML } from "./api.js";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Lenis from "lenis";
+gsap.registerPlugin(ScrollTrigger);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const hero = createWorld(document.querySelector("#eco-world"));
+const growing = createWorld(document.querySelector("#growth-world"), {
+  growth: 0,
+});
+const preview = createWorld(document.querySelector("#preview-world"), {
+  growth: 0.05,
+});
+if (!reduced) {
+  const lenis = new Lenis({ duration: 1.05, smoothWheel: true });
+  lenis.on("scroll", ScrollTrigger.update);
+  const tick = (t) => lenis.raf(t * 1000);
+  gsap.ticker.add(tick);
+  gsap.ticker.lagSmoothing(0);
+  gsap.from(".hero-copy > *", {
+    y: 35,
+    opacity: 0,
+    stagger: 0.13,
+    duration: 1,
+    delay: 0.15,
+  });
+  if (growing)
+    gsap.to(growing.controls, {
+      growth: 1,
+      travel: 1,
+      ease: "none",
+      scrollTrigger: {
+        trigger: ".growth-story",
+        start: "top top",
+        end: "+=380%",
+        pin: true,
+        scrub: 1,
+        onUpdate: (self) => {
+          const index = Math.min(4, Math.floor(self.progress * 5));
+          document
+            .querySelectorAll(".story-caption")
+            .forEach((el, i) => el.classList.toggle("active", i === index));
+          document.querySelector("#story-number").textContent = String(
+            index + 1,
+          ).padStart(2, "0");
+          document.querySelector(".story-meter i").style.transform =
+            `scaleX(${self.progress})`;
+        },
+      },
+    });
+} else {
+  growing?.setGrowth(1);
+  document.querySelector(".story-caption:last-child")?.classList.add("active");
+}
+api("/user/progress")
+  .then((s) => {
+    preview?.setGrowth(Math.min(1, 0.03 + s.ecoPoints / 2000));
+    document.querySelector("#preview-title").textContent =
+      `Level ${s.forestLevel} · ${s.ecoPoints.toLocaleString()} points`;
+    document.querySelector("#preview-copy").textContent =
+      `${s.treesUnlocked} trees unlocked · ${s.challengesCompleted} actions recorded`;
+    document.querySelector("#home-actions").textContent = s.challengesCompleted;
+    document.querySelector("#home-points").textContent = s.ecoPoints;
+    document.querySelector("#home-trees").textContent = s.treesUnlocked;
+  })
+  .catch(() => {
+    document.querySelector("#preview-title").textContent =
+      "Your first seed is waiting";
+    document.querySelector("#preview-copy").textContent =
+      "Create an account to begin your personal ecosystem.";
+  });
+api("/challenges")
+  .then((rows) => {
+    document.querySelector("#home-challenges").innerHTML = rows
+      .slice(0, 3)
+      .map(
+        (c) =>
+          `<a class="mission-preview" href="challenges.html"><span>${escapeHTML(c.category)}</span><h3>${escapeHTML(c.title)}</h3><strong>+${c.points} <small>EP</small></strong><b>↗</b></a>`,
+      )
+      .join("");
+  })
+  .catch(
+    () =>
+      (document.querySelector("#home-challenges").textContent =
+        "Challenges will appear when the service reconnects."),
+  );
+addEventListener(
+  "pagehide",
+  () => {
+    hero?.destroy();
+    growing?.destroy();
+    preview?.destroy();
+  },
+  { once: true },
+);

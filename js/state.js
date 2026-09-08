@@ -1,11 +1,13 @@
-const KEY='ecoverseState';
-const DEFAULT_STATE={ecoPoints:0,completedChallenges:[],forestLevel:1,forestProgress:0,ecoScore:0,badges:[]};
-const LEVELS=[0,250,600,1100,1800];
-const BADGES=[{id:'first-seed',name:'FIRST SEED',test:s=>s.completedChallenges.length>=1},{id:'growing-strong',name:'GROWING STRONG',test:s=>s.ecoPoints>=500},{id:'forest-keeper',name:'FOREST KEEPER',test:s=>s.ecoPoints>=1000},{id:'ecosystem-builder',name:'ECOSYSTEM BUILDER',test:s=>s.completedChallenges.length>=20},{id:'planet-friend',name:'PLANET FRIEND',test:s=>s.ecoPoints>=2000}];
-export const CHALLENGES=[{id:'recycle',category:'waste',icon:'♻',title:'Recycle Today',description:'Sort and recycle your household waste.',difficulty:'Easy',points:20},{id:'energy',category:'energy',icon:'⌁',title:'Energy Saver',description:'Switch off unused lights and appliances.',difficulty:'Easy',points:15},{id:'commute',category:'transport',icon:'↗',title:'Green Commute',description:'Walk, cycle, or take public transport.',difficulty:'Medium',points:30},{id:'water',category:'water',icon:'◌',title:'Save Water',description:'Keep your shower under five minutes.',difficulty:'Easy',points:20},{id:'plant',category:'lifestyle',icon:'✦',title:'Plant Something',description:'Add a native plant to your surroundings.',difficulty:'Bold',points:50},{id:'plastic',category:'waste',icon:'◇',title:'Reduce Plastic',description:'Avoid single-use plastic for one day.',difficulty:'Medium',points:25},{id:'cold-wash',category:'energy',icon:'❄',title:'Cold Wash',description:'Wash clothes with cold water today.',difficulty:'Easy',points:15},{id:'meat-free',category:'lifestyle',icon:'◐',title:'Plant-based Meal',description:'Choose one meal with no meat or dairy.',difficulty:'Medium',points:35},{id:'refill',category:'water',icon:'≈',title:'Refill, Reuse',description:'Carry and refill a reusable bottle.',difficulty:'Easy',points:10}];
-function normalize(raw={}){const s={...DEFAULT_STATE,...raw};const level=Math.min(5,LEVELS.filter(n=>s.ecoPoints>=n).length);const start=LEVELS[level-1],end=LEVELS[level]??2500;s.forestLevel=level;s.forestProgress=level===5?100:Math.round((s.ecoPoints-start)/(end-start)*100);s.ecoScore=Math.min(100,Math.round(s.ecoPoints/25));return s}
-export function getUser(){try{return normalize(JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{return {...DEFAULT_STATE}}}
-export function saveUser(state){const next=normalize(state);localStorage.setItem(KEY,JSON.stringify(next));window.dispatchEvent(new CustomEvent('eco:state',{detail:next}));return next}
-export const getForestProgress=getUser;export const getChallenges=()=>Promise.resolve(CHALLENGES);
-export function completeChallenge(id){const challenge=CHALLENGES.find(c=>c.id===id),state=getUser();if(!challenge||state.completedChallenges.includes(id))return {state,newBadges:[]};state.completedChallenges.push(id);state.ecoPoints+=challenge.points;const next=normalize(state),newBadges=[];BADGES.forEach(b=>{if(!next.badges.includes(b.id)&&b.test(next)){next.badges.push(b.id);newBadges.push(b.name)}});saveUser(next);return {state:next,newBadges,challenge}}
-export function resetProgress(){return saveUser({...DEFAULT_STATE})}export const getBadges=()=>BADGES;
+import { api } from "./api.js";
+export const getUser = () => api("/user/progress");
+export const getForestProgress = () => api("/user/forest");
+export const getChallenges = () => api("/challenges");
+export const getBadges = () => api("/user/badges");
+export async function completeChallenge(id) {
+  const result = await api(`/challenges/${id}/complete`, {
+    method: "POST",
+    body: {},
+  });
+  window.dispatchEvent(new CustomEvent("eco:state", { detail: result.state }));
+  return result;
+}
