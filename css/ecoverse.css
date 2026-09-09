@@ -15,6 +15,311 @@
 .badge-label { padding: 5px 0; margin: 5px 18px 5px 0; border-radius: 0; border-bottom: 1px solid #91a586; background: transparent; }
 .rank-row.top { border-radius: 0; background: transparent; border-top: 2px solid #789862; }
 .empty-state { border-radius: 0; border-top: 1px solid var(--line); background: transparent; }
+
+/* Habitat game workspace — final component layer. */
+.forest-game {
+  max-width: 1440px;
+  margin: 64px auto 24px;
+  padding: clamp(22px, 3vw, 42px);
+  border: 1px solid #315044;
+  border-radius: 18px;
+  background: #10261e;
+  box-shadow: 0 24px 70px #10261e24;
+}
+.game-heading {
+  padding: 0 0 28px;
+  border-bottom: 1px solid #ffffff1d;
+  align-items: flex-end;
+}
+.game-heading h2 {
+  margin: 7px 0 8px;
+  font-size: clamp(36px, 4vw, 58px);
+  letter-spacing: -.045em;
+}
+.game-heading > div > p:last-child { margin: 0; font-size: 15px; }
+.game-resources {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(105px, 1fr));
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+}
+.game-resources div {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #ffffff20;
+  border-radius: 10px;
+  background: #ffffff08;
+}
+.game-resources dt { font-size: 11px; }
+.game-resources dd { margin: 5px 0 0; font-size: 30px; }
+.forest-event {
+  margin: 22px 0;
+  padding: 20px 22px;
+  border: 1px solid #d3b66a66;
+  border-radius: 12px;
+  background: #d1ae5220;
+  color: #f1d991;
+}
+.forest-event h3 { margin: 5px 0; font-size: 25px; }
+.forest-event p { margin: 0; }
+.forest-event button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid #edd492;
+  border-radius: 7px;
+  background: #edd492;
+  color: #223328;
+  font-weight: 600;
+}
+.forest-event button:hover { background: #ffe9aa; }
+.species-picker {
+  display: grid;
+  grid-template-columns: 130px repeat(3, 1fr);
+  gap: 10px;
+  padding: 0 0 28px;
+  border-bottom: 0;
+  overflow: visible;
+}
+.species-picker > span {
+  min-width: 0;
+  padding: 16px 0;
+  align-items: flex-start;
+}
+.species-picker button {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #ffffff22;
+  border-radius: 10px;
+  background: #ffffff07;
+}
+.species-picker button:hover { border-color: #94b47e; background: #ffffff0d; }
+.species-picker button.active {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 2px #d7ef9f18;
+  background: #d7ef9f12;
+}
+.species-picker button.active::after {
+  content: "Selected";
+  float: right;
+  color: var(--lime);
+  font: 10px var(--mono);
+  text-transform: uppercase;
+}
+.game-layout { grid-template-columns: minmax(0, 1fr) 310px; gap: 24px; }
+.game-layout > section { padding: 0; }
+.habitat-map-heading {
+  align-items: end;
+  margin: 0 0 15px;
+  padding: 0 2px;
+}
+.habitat-board {
+  gap: 12px;
+  border: 0;
+  background: transparent;
+}
+.habitat-plot,
+.habitat-plot:nth-child(3n + 2),
+.habitat-plot:nth-child(3n) {
+  min-height: 205px;
+  padding: 18px;
+  border: 1px solid #ffffff1f;
+  border-radius: 12px;
+  background: linear-gradient(155deg, #1d382a, #152c22);
+}
+.habitat-plot.planted { border-color: #77966b66; background: linear-gradient(155deg, #244531, #173126); }
+.habitat-plot.locked { border-style: dashed; background: #0e2019; }
+.habitat-plot.empty button {
+  width: 100%;
+  min-height: 43px;
+  margin-top: auto;
+  padding: 10px 14px;
+  border: 1px solid #9fbd88;
+  border-radius: 7px;
+  background: transparent;
+  color: #d9eccb;
+  text-align: center;
+  font-weight: 600;
+}
+.habitat-plot.empty button:hover { background: #d7ef9f; color: #173026; }
+.plot-actions {
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #ffffff1c;
+}
+.plot-actions button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #ffffff30;
+  border-radius: 6px;
+  background: #ffffff09;
+  color: #e1ecdc;
+  text-align: center;
+}
+.plot-actions button:first-child { border-color: #a9ca91; background: #cce6ac; color: #193126; }
+.plot-actions button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.game-sidebar { border: 0; }
+.game-sidebar section {
+  padding: 24px;
+  border: 1px solid #ffffff1f;
+  border-radius: 12px;
+  background: #ffffff06;
+}
+.game-sidebar section + section { margin-top: 12px; border-top: 1px solid #ffffff1f; }
+.habitat-score strong { font-size: 58px; }
+.habitat-meter { grid-template-columns: 105px 1fr 30px; font-size: 12px; }
+.habitat-meter i { height: 6px; border-radius: 5px; overflow: hidden; }
+.wildlife-card { padding: 12px 0; }
+.game-footer {
+  margin-top: 28px;
+  padding: 24px 0 0;
+  align-items: flex-end;
+}
+.daily-chip,
+.zone-roadmap span,
+.zone-roadmap a {
+  padding: 7px 11px;
+  border: 1px solid #ffffff20;
+  border-radius: 6px;
+  background: #ffffff06;
+}
+.daily-chip.done,
+.zone-roadmap .active { border-color: #a9c98d; background: #d7ef9f12; }
+.zone-roadmap a { border-color: #d7ef9f; color: var(--lime); }
+
+@media (max-width: 1050px) {
+  .game-heading { align-items: flex-start; flex-direction: column; }
+  .game-resources { width: 100%; margin-top: 15px; }
+  .species-picker { grid-template-columns: repeat(3, 1fr); }
+  .species-picker > span { grid-column: 1 / -1; padding-bottom: 0; }
+  .game-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .forest-game { border-radius: 10px; }
+  .game-resources { grid-template-columns: repeat(3, 1fr); }
+  .game-resources div { padding: 10px; }
+  .game-resources dd { font-size: 24px; }
+  .species-picker { display: grid; grid-template-columns: 1fr; }
+  .species-picker > span { grid-column: auto; }
+  .species-picker button { min-width: 0; }
+  .habitat-board { grid-template-columns: 1fr; }
+  .forest-event { align-items: flex-start; flex-direction: column; }
+}
+
+/* Spacious habitat layout: surfaces group content; borders do not. */
+.forest-game {
+  max-width: 1260px;
+  padding: clamp(28px, 4vw, 56px);
+  border: 0;
+  border-radius: 14px;
+  background: #11271f;
+}
+.game-heading { padding-bottom: 36px; border: 0; align-items: center; }
+.game-heading h2 { font-size: clamp(36px, 3.5vw, 52px); }
+.game-resources { display: flex; gap: 0; }
+.game-resources div {
+  min-width: 112px;
+  padding: 6px 22px;
+  border: 0;
+  border-left: 1px solid #ffffff24;
+  border-radius: 0;
+  background: transparent;
+}
+.game-resources dd { font-size: 34px; }
+.forest-event {
+  margin: 0 0 34px;
+  padding: 20px 24px;
+  border: 0;
+  border-radius: 9px;
+  background: #d3b968;
+  color: #233128;
+}
+.forest-event .eyebrow,
+.forest-event p { color: #4f513d; }
+.forest-event button { border: 0; background: #173127; color: white; }
+.species-picker {
+  grid-template-columns: 110px repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 40px;
+  padding: 0;
+}
+.species-picker button {
+  padding: 16px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #1a3429;
+}
+.species-picker button:hover { border: 0; background: #203e30; }
+.species-picker button.active { border: 0; box-shadow: inset 0 -3px #d7ef9f; background: #203e30; }
+.game-layout { grid-template-columns: minmax(0, 1fr) 290px; gap: 38px; }
+.habitat-map-heading { align-items: flex-start; margin-bottom: 18px; }
+.habitat-map-heading > div:first-child > span { color: white; font: 17px var(--sans); text-transform: none; }
+.zone-tabs { display: flex; gap: 5px; }
+.zone-tabs button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  color: #9daf9f;
+  background: transparent;
+  font-size: 12px;
+}
+.zone-tabs button:hover:not(:disabled) { color: white; background: #ffffff0b; }
+.zone-tabs button.active { color: #173127; background: var(--lime); }
+.zone-tabs button:disabled { opacity: .35; }
+.habitat-board { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.habitat-plot,
+.habitat-plot:nth-child(3n + 2),
+.habitat-plot:nth-child(3n) {
+  min-height: 220px;
+  padding: 22px;
+  border: 0;
+  border-radius: 10px;
+  background: #1a3429;
+}
+.habitat-plot.planted { border: 0; background: linear-gradient(150deg, #274834, #1a3529); }
+.habitat-plot.locked { border: 0; background: #0d2019; }
+.habitat-plot h3 { font-size: 27px; }
+.habitat-plot.empty button,
+.plot-actions button { border: 0; }
+.habitat-plot.empty button { background: #d7ef9f; color: #193126; }
+.plot-actions { border: 0; padding-top: 14px; }
+.plot-actions button { background: #29483a; }
+.plot-actions button:first-child { background: #d7ef9f; }
+.game-sidebar { display: grid; gap: 14px; align-content: start; }
+.game-sidebar section,
+.game-sidebar section + section {
+  margin: 0;
+  padding: 26px;
+  border: 0;
+  border-radius: 10px;
+  background: #1a3429;
+}
+.habitat-score strong { font-size: 54px; }
+.wildlife-card { border-color: #ffffff12; }
+.game-footer { margin-top: 42px; padding-top: 28px; border-top: 1px solid #ffffff16; }
+.daily-chip { border: 0; background: #1a3429; }
+.daily-chip.done { border: 0; background: #294b38; }
+.team-fieldwork {
+  padding: 11px 16px;
+  border-radius: 7px;
+  background: #e3edda;
+  color: #183027;
+  font-weight: 600;
+}
+@media (max-width: 1050px) {
+  .species-picker { grid-template-columns: repeat(3, 1fr); }
+  .game-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .game-heading { align-items: flex-start; }
+  .game-resources { width: 100%; }
+  .game-resources div { flex: 1; padding: 5px 12px; }
+  .species-picker { grid-template-columns: 1fr; }
+  .habitat-map-heading { gap: 18px; flex-direction: column; }
+  .zone-tabs { width: 100%; overflow-x: auto; }
+  .habitat-board { grid-template-columns: 1fr; }
+  .game-footer { align-items: flex-start; }
+}
 * {
   box-sizing: border-box;
 }
@@ -1708,3 +2013,62 @@ footer .brand {
 .badge-label { padding: 5px 0; margin: 5px 18px 5px 0; border-radius: 0; border-bottom: 1px solid #91a586; background: transparent; }
 .rank-row.top { border-radius: 0; background: transparent; border-top: 2px solid #789862; }
 .empty-state { border-radius: 0; border-top: 1px solid var(--line); background: transparent; }
+
+/* Final habitat cascade — preserves outer whitespace and restores inner gutters. */
+.forest-game {
+  max-width: 1260px;
+  margin: 64px auto 24px;
+  padding: clamp(32px, 4vw, 56px);
+  border: 0;
+  border-radius: 14px;
+  background: #11271f;
+  box-shadow: none;
+}
+.game-heading {
+  align-items: center;
+  padding: 0 0 36px;
+  border: 0;
+}
+.game-heading h2 { font-size: clamp(36px, 3.5vw, 52px); }
+.game-resources { display: flex; gap: 0; padding: 0; border-radius: 0; background: transparent; }
+.game-resources div { min-width: 112px; padding: 6px 22px; border: 0; border-left: 1px solid #ffffff24; border-radius: 0; background: transparent; }
+.forest-event { margin: 0 0 34px; padding: 20px 24px; border: 0; border-radius: 9px; background: #d3b968; color: #233128; }
+.forest-event .eyebrow, .forest-event p { color: #4f513d; }
+.forest-event button { min-height: 44px; padding: 10px 18px; border: 0; border-radius: 7px; background: #173127; color: white; }
+.species-picker { display: grid; grid-template-columns: 110px repeat(3, 1fr); gap: 8px; margin: 0 0 40px; padding: 0; border: 0; }
+.species-picker > span { min-width: 0; padding: 16px 0; }
+.species-picker button { min-width: 0; padding: 16px 18px; border: 0; border-radius: 8px; background: #1a3429; }
+.species-picker button.active { border: 0; box-shadow: inset 0 -3px var(--lime); background: #203e30; }
+.game-layout { grid-template-columns: minmax(0, 1fr) 290px; gap: 38px; margin: 0; }
+.game-layout > section { padding: 0; }
+.habitat-map-heading { align-items: flex-start; margin: 0 0 18px; }
+.zone-tabs { display: flex; gap: 5px; }
+.zone-tabs button { padding: 8px 12px; border: 0; border-radius: 6px; color: #9daf9f; background: transparent; font-size: 12px; }
+.zone-tabs button.active { color: #173127; background: var(--lime); }
+.habitat-board { grid-template-columns: repeat(3, 1fr); gap: 12px; border: 0; background: transparent; }
+.habitat-plot, .habitat-plot:nth-child(3n + 2), .habitat-plot:nth-child(3n) { min-height: 220px; padding: 22px; border: 0; border-radius: 10px; background: #1a3429; }
+.habitat-plot.planted { border: 0; background: linear-gradient(150deg, #274834, #1a3529); }
+.habitat-plot.empty button { width: 100%; min-height: 43px; margin-top: auto; padding: 10px 14px; border: 0; border-radius: 7px; background: var(--lime); color: #193126; text-align: center; font-weight: 600; }
+.plot-actions { gap: 8px; padding-top: 14px; border: 0; }
+.plot-actions button { min-height: 38px; padding: 8px 12px; border: 0; border-radius: 6px; background: #29483a; color: #e1ecdc; text-align: center; }
+.plot-actions button:first-child { background: var(--lime); color: #193126; }
+.game-sidebar { display: grid; gap: 14px; border: 0; align-content: start; }
+.game-sidebar section, .game-sidebar section + section { margin: 0; padding: 26px; border: 0; border-radius: 10px; background: #1a3429; }
+.game-footer { margin-top: 42px; padding: 28px 0 0; border-top: 1px solid #ffffff16; }
+.team-fieldwork { padding: 11px 16px; border-radius: 7px; background: #e3edda; color: #183027; font-weight: 600; }
+@media (max-width: 1050px) {
+  .game-heading { align-items: flex-start; flex-direction: column; }
+  .game-resources { width: 100%; margin-top: 15px; }
+  .species-picker { grid-template-columns: repeat(3, 1fr); }
+  .species-picker > span { grid-column: 1 / -1; padding-bottom: 0; }
+  .game-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .forest-game { margin-top: 36px; padding: 24px 18px; }
+  .game-resources div { flex: 1; min-width: 0; padding: 5px 10px; }
+  .species-picker { grid-template-columns: 1fr; }
+  .species-picker > span { grid-column: auto; }
+  .habitat-map-heading, .game-footer { align-items: flex-start; flex-direction: column; gap: 18px; }
+  .zone-tabs { width: 100%; overflow-x: auto; }
+  .habitat-board { grid-template-columns: 1fr; }
+}
