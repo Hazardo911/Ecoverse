@@ -1,4 +1,19 @@
-export const thresholds = [0, 200, 500, 1000, 2000];
+export const thresholds = (
+  process.env.FOREST_THRESHOLDS || "0,200,500,1000,2000"
+)
+  .split(",")
+  .map(Number);
+if (
+  thresholds.length !== 5 ||
+  thresholds[0] !== 0 ||
+  thresholds.some(
+    (t, i) =>
+      !Number.isInteger(t) || t < 0 || (i > 0 && t <= thresholds[i - 1]),
+  )
+)
+  throw new Error(
+    "FOREST_THRESHOLDS must contain five increasing integers starting at zero.",
+  );
 export function forestFromPoints(points) {
   const forestLevel = thresholds.filter((t) => points >= t).length;
   const floor = thresholds[forestLevel - 1];
@@ -18,31 +33,37 @@ export const badgeRules = [
   [
     "first-seed",
     "First Seed",
-    "Complete your first challenge",
+    "Your first approved challenge",
     (s) => s.actions >= 1,
   ],
   [
     "growing-strong",
     "Growing Strong",
-    "Earn 500 points",
+    "Earn 500 verified Eco Points",
     (s) => s.points >= 500,
   ],
   [
     "forest-keeper",
     "Forest Keeper",
-    "Earn 1,000 points",
+    "Earn 1,000 verified Eco Points",
     (s) => s.points >= 1000,
   ],
   [
     "ecosystem-builder",
     "Ecosystem Builder",
-    "Complete 20 actions",
+    "Have 20 challenges approved",
     (s) => s.actions >= 20,
   ],
   [
     "planet-friend",
     "Planet Friend",
-    "Earn 2,000 points",
+    "Earn 2,000 verified Eco Points",
     (s) => s.points >= 2000,
+  ],
+  [
+    "trust-keeper",
+    "Trust Keeper",
+    "Reach 90 trust with at least 20 approved actions",
+    (s) => s.trust >= 90 && s.actions >= 20,
   ],
 ];

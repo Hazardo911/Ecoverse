@@ -16,6 +16,7 @@ import {
   prepareTree,
   cloneTree,
 } from "./woodland-materials.js";
+import { ecosystemGrowth, phase, treeGrowth } from "./ecosystem-growth.js";
 
 // One reusable ecosystem renderer. Growth is presentation state, never a points ledger.
 export function createWorld(
@@ -24,11 +25,17 @@ export function createWorld(
     growth = 1,
     treeLimit = null,
     wildlifeLimit = null,
+    story = false,
     onSelect = () => {},
   } = {},
 ) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const mobile = innerWidth < 760;
+  const fallback = () => {
+    canvas.dataset.sceneStatus = "fallback";
+    canvas.parentElement.classList.add("scene-fallback");
+    return null;
+  };
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({
@@ -38,12 +45,29 @@ export function createWorld(
       powerPreference: "high-performance",
     });
   } catch {
-    return null;
+    return fallback();
   }
-  renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 1.75));
+  // Dense scanned foliage is unsuitable for a software rasterizer. Preserve the
+  // accessible product instead of blocking forms while the CPU compiles the scene.
+  const gl = renderer.getContext(),
+    debug = gl.getExtension("WEBGL_debug_renderer_info");
+  if (
+    debug &&
+    /swiftshader|llvmpipe|software rasterizer/i.test(
+      gl.getParameter(debug.UNMASKED_RENDERER_WEBGL),
+    )
+  ) {
+    renderer.dispose();
+    renderer.forceContextLoss();
+    return fallback();
+  }
+  const lowQuality = mobile || localStorage.getItem("eco-quality") === "low";
+  renderer.setPixelRatio(
+    Math.min(devicePixelRatio, lowQuality || reduced ? 1 : 1.75),
+  );
   renderer.setClearColor(0xbacbd0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.shadowMap.enabled = !mobile;
+  renderer.shadowMap.enabled = !lowQuality && !reduced;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xbacbd0);
@@ -53,7 +77,7 @@ export function createWorld(
   scene.add(hemi);
   const sunlight = new THREE.DirectionalLight(0xffdda2, 2.8);
   sunlight.position.set(-12, 24, 8);
-  sunlight.castShadow = !mobile;
+  sunlight.castShadow = !lowQuality && !reduced;
   sunlight.shadow.mapSize.set(2048, 2048);
   Object.assign(sunlight.shadow.camera, {
     left: -24,
@@ -70,6 +94,8 @@ export function createWorld(
   const material = (color, extra = {}) =>
     new THREE.MeshStandardMaterial({ color, roughness: 0.9, ...extra });
   const soil = material(0xffffff);
+  const dormantSoil = new THREE.Color(0x675744),
+    livingSoil = new THREE.Color(0xffffff);
   let disposed = false;
   const textures = [];
   const loader = new THREE.TextureLoader();
@@ -147,11 +173,16 @@ export function createWorld(
     group.userData = {
       kind: "tree",
       title: index === 0 ? "The heartwood tree" : "Native woodland",
-      description: "Each recorded action adds growth to your forest.",
+      description: "Each approved action adds growth to your forest.",
     };
     group.rotation.y = rand() * Math.PI * 2;
     world.add(group);
-    trees.push({ group, size, index });
+    trees.push({
+      group,
+      size,
+      index,
+      groundY: group.position.y,
+    });
     pickables.push(group);
   }
   tree(-1, -2, 1.65, 0);
@@ -228,6 +259,9 @@ export function createWorld(
           z = -18 - rand() * 25;
         tree.position.set(x, heightAt(x, z), z);
         tree.scale.multiplyScalar(1.1 + rand() * 0.8);
+        tree.userData.matureScale = tree.scale.clone();
+        tree.userData.groundY = tree.position.y;
+        tree.userData.growthOrder = i / (mobile ? 10 : 18);
         tree.rotation.y = rand() * 6.28;
         tree.traverse((o) => {
           if (o.isMesh) o.castShadow = false;
@@ -350,6 +384,7 @@ export function createWorld(
         seed: kind === "fern" ? 812 : kind === "moss" ? 624 : 171,
         mobile,
       });
+      group.userData.ecosystemLayer = kind;
       if (kind === "fern") {
         const v = variants[0];
         fernTemplate = new THREE.Mesh(v.geometry, v.material);
@@ -452,6 +487,22 @@ export function createWorld(
   );
   scene.add(fireflies);
   const controls = { growth, travel: 0, night: 0 };
+  const storyPath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(2.2, 1.15, 5.4),
+    new THREE.Vector3(6.5, 2.5, 10),
+    new THREE.Vector3(11, 5.4, 17),
+    new THREE.Vector3(5.5, 8.6, 18.5),
+    new THREE.Vector3(-3.5, 10.8, 21),
+  ]);
+  const storyTargetPath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-1, 0.22, -2),
+    new THREE.Vector3(-1, 1.1, -2),
+    new THREE.Vector3(0, 2.2, -3),
+    new THREE.Vector3(1.5, 3.2, -6),
+    new THREE.Vector3(0, 3.8, -8),
+  ]);
+  const storyCamera = new THREE.Vector3(),
+    storyTarget = new THREE.Vector3();
   let atmosphere = "day";
   const pointer = new THREE.Vector2();
   function move(e) {
@@ -499,34 +550,72 @@ export function createWorld(
   );
   intersection.observe(canvas);
   const clock = new THREE.Clock();
-  let lastTime = 0;
+  let lastTime = 0,
+    lastFrame = -Infinity;
   function render() {
     frame = requestAnimationFrame(render);
     if (!visible || document.hidden) return;
+    const now = performance.now();
+    if (now - lastFrame < (reduced ? 300 : lowQuality ? 1000 / 24 : 1000 / 40))
+      return;
+    lastFrame = now;
     const t = reduced ? 0 : clock.getElapsedTime(),
-      g = controls.growth;
+      g = controls.growth,
+      stages = ecosystemGrowth(g);
     const delta = Math.min(0.05, Math.max(0, t - lastTime));
     lastTime = t;
-    flock?.update(t, delta, g, wildlifeLimit);
-    pollinators?.update(t, delta, g, wildlifeLimit);
-    understory.visible = g > 0.12;
-    windTime.value = t;
-    camera.position.set(
-      13 - controls.travel * 7 + (reduced ? 0 : pointer.x * 0.65),
-      6.5 - controls.travel * 2,
-      22 - controls.travel * 7,
-    );
-    camera.lookAt(0, 3, -3);
-    seedMesh.visible = g < 0.12;
-    trees.forEach(({ group, index, size }, i) => {
-      const amount = THREE.MathUtils.clamp((g - index * 0.013) * 2.5, 0.001, 1);
-      group.visible = treeLimit === null || i < treeLimit;
-      group.scale.setScalar(amount * size);
-      group.rotation.z = Math.sin(t * 0.7 + index) * 0.008 * amount;
+    flock?.update(t, delta, stages.wildlife, wildlifeLimit);
+    pollinators?.update(t, delta, stages.wildlife, wildlifeLimit);
+    understory.visible = stages.understory > 0.002;
+    backdrop.visible = stages.background > 0.002;
+    for (const holder of [understory, world])
+      holder.traverse((object) => {
+        if (!object.isInstancedMesh || !object.userData.fullCount) return;
+        const amount =
+          object.userData.ecosystemLayer === "moss"
+            ? stages.moss
+            : object.userData.ecosystemLayer === "fern"
+              ? stages.understory
+              : 1;
+        object.count = Math.max(0, Math.floor(object.userData.fullCount * amount));
+      });
+    backdrop.children.forEach((object) => {
+      const amount = phase(
+        stages.background,
+        object.userData.growthOrder * 0.45,
+        0.55 + object.userData.growthOrder * 0.45,
+      );
+      const scale = object.userData.matureScale;
+      if (!scale) return;
+      object.scale.set(scale.x * (0.12 + amount * 0.88), scale.y * amount, scale.z * (0.12 + amount * 0.88));
+      object.position.y = object.userData.groundY - (1 - amount) * 1.4;
     });
-    river.visible = g > 0.43;
-    river.material.opacity = THREE.MathUtils.clamp((g - 0.43) * 3, 0, 0.85);
-    fireflies.visible = g > 0.84 && atmosphere === "night";
+    windTime.value = t;
+    if (story) {
+      storyPath.getPointAt(controls.travel, storyCamera);
+      storyTargetPath.getPointAt(controls.travel, storyTarget);
+      camera.position.copy(storyCamera);
+      camera.position.x += reduced ? 0 : pointer.x * 0.28;
+      camera.lookAt(storyTarget);
+    } else {
+      camera.position.set(13 - controls.travel * 7 + (reduced ? 0 : pointer.x * 0.65), 6.5 - controls.travel * 2, 22 - controls.travel * 7);
+      camera.lookAt(0, 3, -3);
+    }
+    seedMesh.visible = stages.seed > 0.01;
+    seedMesh.scale.set(1, 1 + (1 - stages.seed) * 0.45, 0.65);
+    seedMesh.position.y = 0.14 + (1 - stages.seed) * 0.08;
+    soil.color.lerpColors(dormantSoil, livingSoil, stages.soil);
+    scene.fog.density = THREE.MathUtils.lerp(0.028, 0.016, stages.atmosphere);
+    trees.forEach(({ group, index, size, groundY }, i) => {
+      const amount = treeGrowth(g, index, trees.length);
+      group.visible = amount.visible && (treeLimit === null || i < treeLimit);
+      group.scale.set(amount.width * size, amount.height * size, amount.width * size);
+      group.position.y = groundY - (1 - amount.height) * 0.9;
+      group.rotation.z = Math.sin(t * 0.7 + index) * 0.008 * amount.maturity;
+    });
+    river.visible = stages.water > 0.002;
+    river.material.opacity = stages.water * 0.85;
+    fireflies.visible = stages.wildlife > 0.6 && atmosphere === "night";
     fireflies.material.opacity = atmosphere === "night" ? 0.95 : 0.3;
     fireflies.rotation.y = t * 0.025;
     renderer.render(scene, camera);
@@ -666,6 +755,11 @@ export function createWorld(
     },
     setGrowth(v) {
       controls.growth = THREE.MathUtils.clamp(v, 0, 1);
+    },
+    setProgress(state) {
+      treeLimit = state.treesUnlocked;
+      wildlifeLimit = state.wildlifeUnlocked;
+      controls.growth = THREE.MathUtils.clamp(state.visualGrowth, 0, 1);
     },
     setTime(mode) {
       atmosphere = mode;

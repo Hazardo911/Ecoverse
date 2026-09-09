@@ -30,9 +30,10 @@ form.onsubmit = async (e) => {
     };
     if (mode === "register") body.name = form.elements.name.value;
     await api("/auth/" + mode, { method: "POST", body });
-    location.href = "forest.html";
+    location.href = "dashboard.html";
   } catch (err) {
     document.querySelector("#auth-error").textContent = err.message;
     button.disabled = false;
   }
 };
+if(location.hash==='#login')document.querySelector('[data-mode="login"]').click();

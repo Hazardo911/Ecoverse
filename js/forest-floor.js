@@ -98,6 +98,8 @@ export function scatterSurface(
       variant.material,
       amount,
     );
+    batch.userData.ecosystemLayer = kind;
+    batch.userData.fullCount = amount;
     for (let i = 0; i < amount; i++) {
       let x, z;
       do {
@@ -133,5 +135,6 @@ export function scatterSurface(
     batch.computeBoundingSphere();
     group.add(batch);
   });
+  group.userData.ecosystemLayer = kind;
   return group;
 }

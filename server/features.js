@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { readStore, changeStore, nextId } from "./store.js";
+import { readStore, changeStore, nextId, featureContext } from "./store.js";
+import { createForestGame, gameView, playForestAction } from "./forest-game.js";
 
 const day = () => new Date().toISOString().slice(0, 10);
 const dateSchema = z
@@ -20,6 +21,7 @@ const categories = [
   "waste",
   "transport",
   "lifestyle",
+  "nature",
 ];
 export const shopCatalog = [
   {
@@ -141,7 +143,7 @@ export function quests(userId, data, now = day()) {
     {
       id: "balanced",
       title: "A balanced week",
-      description: "Record an energy, water, and transport action.",
+      description: "Have an energy, water, and transport action approved.",
       target: 3,
       progress: ["energy", "water", "transport"].filter((c) => seen.has(c))
         .length,
@@ -154,7 +156,7 @@ export function quests(userId, data, now = day()) {
     {
       id: "five-actions",
       title: "Build momentum",
-      description: "Record five actions this week.",
+      description: "Have five actions approved this week.",
       target: 5,
       progress: Math.min(5, entries.length),
       reward: 25,
@@ -207,8 +209,30 @@ function escape(value) {
 export function featureRoutes(auth, progress) {
   const router = Router();
   router.use(auth);
-  router.get("/journey", (req, res) => {
-    const data = readStore(),
+  router.use(featureContext);
+  router.get("/forest/game", async (req, res) => {
+    const state = await progress(req.user.id);
+    const result = await changeStore((data) => {
+      data.forestGame ||= createForestGame(state);
+      return gameView(data.forestGame, state);
+    });
+    res.json({ data: result });
+  });
+  router.post("/forest/game/action", async (req, res) => {
+    const input = z.object({
+      action: z.enum(["plant", "water", "weed", "rescue"]),
+      plot: z.number().int().min(0).max(11).default(0),
+      species: z.enum(["oak", "birch", "willow"]).optional(),
+    }).strict().parse(req.body);
+    const state = await progress(req.user.id);
+    const result = await changeStore((data) => {
+      data.forestGame ||= createForestGame(state);
+      return playForestAction(data.forestGame, state, input);
+    });
+    res.json({ data: result });
+  });
+  router.get("/journey", async (req, res) => {
+    const data = await readStore(),
       completions = data.completions.filter((c) => c.user_id === req.user.id),
       counts = {};
     for (const c of completions)
@@ -286,8 +310,8 @@ export function featureRoutes(auth, progress) {
     });
     res.json({ data: result });
   });
-  router.get("/shop", (req, res) => {
-    const data = readStore();
+  router.get("/shop", async (req, res) => {
+    const data = await readStore();
     res.json({
       data: {
         catalog: shopCatalog,
@@ -312,7 +336,7 @@ export function featureRoutes(auth, progress) {
       if (wallet(req.user.id, data).balance < item.cost)
         throw failure(
           409,
-          "Complete more actions or quests to earn enough points.",
+          "Earn verified actions or approved-action quest rewards to afford this item.",
         );
       data.purchases.push({
         user_id: req.user.id,
@@ -362,8 +386,8 @@ export function featureRoutes(auth, progress) {
     });
     res.json({ data: result });
   });
-  router.get("/journal", (req, res) => {
-    const data = readStore();
+  router.get("/journal", async (req, res) => {
+    const data = await readStore();
     res.json({
       data: data.completions
         .filter((c) => c.user_id === req.user.id)
@@ -427,13 +451,13 @@ export function featureRoutes(auth, progress) {
     });
     res.json({ data: result });
   });
-  router.get("/report", (req, res) => {
-    const data = readStore(),
-      state = progress(req.user.id, data),
+  router.get("/report", async (req, res) => {
+    const data = await readStore(),
+      state = await progress(req.user.id),
       entries = data.completions.filter((c) => c.user_id === req.user.id),
       streak = streaks(entries),
       funds = wallet(req.user.id, data);
-    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>EcoVerse impact report</title><style>body{font:16px/1.6 system-ui;color:#173b29;max-width:900px;margin:50px auto;padding:25px}h1{font-size:44px}table{width:100%;border-collapse:collapse}td,th{padding:10px;text-align:left;border-bottom:1px solid #ddd}.metrics{display:flex;flex-wrap:wrap;gap:30px;background:#edf2e7;padding:20px}.metrics strong{display:block;font-size:30px}small{color:#52664d}@media print{body{margin:0;font-size:11pt}tr{break-inside:avoid}h2{break-after:avoid}}</style></head><body><small>ECOVERSE / PERSONAL IMPACT REPORT / ${day()} UTC</small><h1>${escape(req.user.name)}'s growing world</h1><p>All-time progress based on recorded actions. Generated on ${escape(new Date().toISOString())}.</p><div class="metrics"><div><strong>${state.ecoPoints}</strong>Lifetime Eco Points</div><div><strong>${state.challengesCompleted}</strong>Actions</div><div><strong>${state.forestLevel}</strong>Forest level</div><div><strong>${streak.longest}</strong>Best streak (days)</div></div><h2>Your ecosystem</h2><p>${state.treesUnlocked} trees unlocked · ${state.wildlifeUnlocked} wildlife unlocks · ${funds.balance} spendable points. Purchases never reduce forest growth.</p><h2>Badges</h2><p>${state.badges.map((b) => escape(b.name)).join(" · ") || "Complete your first action to earn a badge."}</p><h2>Personal goals</h2><ul>${
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>EcoVerse impact report</title><style>body{font:16px/1.6 system-ui;color:#173b29;max-width:900px;margin:50px auto;padding:25px}h1{font-size:44px}table{width:100%;border-collapse:collapse}td,th{padding:10px;text-align:left;border-bottom:1px solid #ddd}.metrics{display:flex;flex-wrap:wrap;gap:30px;background:#edf2e7;padding:20px}.metrics strong{display:block;font-size:30px}small{color:#52664d}@media print{body{margin:0;font-size:11pt}tr{break-inside:avoid}h2{break-after:avoid}}</style></head><body><small>ECOVERSE / PERSONAL IMPACT REPORT / ${day()} UTC</small><h1>${escape(req.user.name)}'s growing world</h1><p>All-time progress based on approved evidence. Generated on ${escape(new Date().toISOString())}.</p><div class="metrics"><div><strong>${state.ecoPoints}</strong>Lifetime Eco Points</div><div><strong>${state.challengesCompleted}</strong>Actions</div><div><strong>${state.forestLevel}</strong>Forest level</div><div><strong>${streak.longest}</strong>Best streak (days)</div></div><h2>Your ecosystem</h2><p>${state.treesUnlocked} trees unlocked · ${state.wildlifeUnlocked} wildlife unlocks · ${funds.balance} spendable points. Purchases never reduce forest growth.</p><h2>Badges</h2><p>${state.badges.map((b) => escape(b.name)).join(" · ") || "Complete your first action to earn a badge."}</p><h2>Personal goals</h2><ul>${
       data.goals
         .filter((g) => g.user_id === req.user.id && !g.archived)
         .map((g) => {
@@ -441,7 +465,7 @@ export function featureRoutes(auth, progress) {
           return `<li>${escape(g.title)}: ${p.progress}/${g.target} actions — ${p.status}, due ${g.deadline}</li>`;
         })
         .join("") || "<li>No goals yet.</li>"
-    }</ul><h2>Action history</h2><table><thead><tr><th>Date (UTC)</th><th>Action</th><th>Category</th></tr></thead><tbody>${entries.map((c) => `<tr><td>${c.completion_day}</td><td>${escape(c.title || data.challenges.find((x) => x.id === c.challenge_id)?.title)}</td><td>${escape(categoryOf(c, data))}</td></tr>`).join("") || '<tr><td colspan="3">No actions recorded.</td></tr>'}</tbody></table><p><small>Actions are self-reported. CO₂ estimates are unavailable without measured quantities. Open this file in a browser and choose Print → Save as PDF for a PDF copy.</small></p></body></html>`;
+    }</ul><h2>Action history</h2><table><thead><tr><th>Date (UTC)</th><th>Action</th><th>Category</th></tr></thead><tbody>${entries.map((c) => `<tr><td>${c.completion_day}</td><td>${escape(c.title || data.challenges.find((x) => x.id === c.challenge_id)?.title)}</td><td>${escape(categoryOf(c, data))}</td></tr>`).join("") || '<tr><td colspan="3">No actions recorded.</td></tr>'}</tbody></table><p><small>Evidence has been manually reviewed; this does not guarantee real-world impact. CO₂ estimates are unavailable without measured quantities. Open this file in a browser and choose Print → Save as PDF for a PDF copy.</small></p></body></html>`;
     res
       .set({
         "Content-Type": "text/html; charset=utf-8",

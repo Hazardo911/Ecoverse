@@ -96,4 +96,94 @@ const rows = [
     20,
   ],
 ];
-export const challenges=rows.map(([slug,title,description,category,difficulty,points],i)=>({id:i+1,slug,title,description,category,difficulty,points,icon:'leaf',is_active:true}));
+const guidance = {
+  recycle: [
+    "Keep reusable materials in circulation and out of mixed waste.",
+    "Check local recycling rules. Separate accepted materials, rinse where needed, and use the correct collection.",
+    "Photograph the sorted materials before collection. Do not include private documents.",
+    "10 minutes",
+  ],
+  energy: [
+    "Avoid wasting electricity when equipment is not needed.",
+    "Identify idle devices, switch them off safely, and describe what changed. Never touch wiring.",
+    "Show the switched-off devices and explain your routine. A photo alone cannot measure saved electricity.",
+    "10 minutes",
+  ],
+  commute: [
+    "Replacing car trips can reduce transport emissions.",
+    "Choose a safe walking, cycling, or public transport route for a journey you would otherwise drive.",
+    "Photograph your bicycle, transit ticket with personal details hidden, or destination. Explain the replaced trip.",
+    "One journey",
+  ],
+  water: [
+    "Conserving freshwater also reduces the energy needed to treat and move it.",
+    "Choose a safe water-saving habit and describe how you applied it.",
+    "Show a timer or water-saving setup. Never upload intimate bathroom photos.",
+    "5–10 minutes",
+  ],
+  plant: [
+    "Appropriate native plants provide food and shelter for local species.",
+    "Choose a locally suitable plant, plant it with permission, water it, and plan ongoing care.",
+    "Show the planted item and describe where and how you will care for it.",
+    "30 minutes",
+  ],
+  plastic: [
+    "Reusing items reduces demand for disposable packaging.",
+    "Take reusable bags and containers to replace single-use items during a real errand.",
+    "Show the reusable items in use, without other people’s faces.",
+    "One errand",
+  ],
+  "cold-wash": [
+    "Cold washing can reduce the energy used for water heating.",
+    "Check garment care instructions and wash a full suitable load on a cold cycle.",
+    "Show the cycle setting and explain the load. Do not photograph private clothing.",
+    "One wash",
+  ],
+  meal: [
+    "Food choices can support less resource-intensive routines.",
+    "Prepare a balanced plant-based meal using ingredients available to you.",
+    "Show the finished meal and describe the ingredients.",
+    "30 minutes",
+  ],
+  refill: [
+    "A durable refillable bottle can replace disposable bottles.",
+    "Safely refill your bottle from a drinking-water source during your day.",
+    "Show your bottle at the refill point and explain what purchase it replaced.",
+    "5 minutes",
+  ],
+  food: [
+    "Using edible leftovers helps prevent avoidable food waste.",
+    "Check food safety first, then prepare a meal with ingredients that would otherwise be discarded.",
+    "Show the meal and explain which leftovers you used.",
+    "20 minutes",
+  ],
+  repair: [
+    "Keeping products in use reduces demand for replacement materials.",
+    "Choose a safe repair within your skills. Avoid electrical or structural repairs without expertise.",
+    "Show the repaired item and describe the change.",
+    "30–60 minutes",
+  ],
+  walk: [
+    "Short car journeys can sometimes be replaced with an active trip.",
+    "Pick a safe nearby errand and walk instead of driving.",
+    "Show a safe destination detail and describe the errand; do not expose your home address.",
+    "15–30 minutes",
+  ],
+};
+export const challenges = rows.map(
+  ([slug, title, description, category, difficulty, points], i) => ({
+    id: i + 1,
+    slug,
+    title,
+    description,
+    category: slug === "plant" ? "nature" : category,
+    difficulty,
+    points,
+    icon: "leaf",
+    is_active: true,
+    benefit: guidance[slug][0],
+    instructions: guidance[slug][1],
+    proof_requirements: guidance[slug][2],
+    estimated_time: guidance[slug][3],
+  }),
+);

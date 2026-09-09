@@ -1,6 +1,13 @@
-import {readStore,changeStore} from './store.js';
-const email=process.argv[2]?.trim().toLowerCase();
-if(!email)throw new Error('Usage: npm run admin:grant -- email@example.com');
-if(!readStore().users.some(u=>u.email===email))throw new Error('Register an account with that email first.');
-await changeStore(data=>{data.users.find(u=>u.email===email).role='admin';return true});
-console.log('Administrator granted. Restart the backend if it is running.');
+import { rows, pool } from "./db.js";
+const email = process.argv[2]?.trim().toLowerCase();
+try {
+  if (!email)
+    throw new Error("Usage: npm run admin:grant -- email@example.com");
+  const r = await rows("UPDATE users SET role='admin' WHERE email=?", [email]);
+  if (!r.affectedRows) throw new Error("Register this account first.");
+  console.log(
+    "Administrator granted. No restart needed. Administrators cannot review their own submissions.",
+  );
+} finally {
+  await pool.end();
+}

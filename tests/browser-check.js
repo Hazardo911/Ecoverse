@@ -1,14 +1,12 @@
-import { chromium } from "@playwright/test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
-const directory = await mkdtemp(join(tmpdir(), "ecoverse-browser-"));
-process.env.DATA_FILE = join(directory, "state.json");
-process.env.NODE_ENV = "development";
+import sharp from "sharp";
+import { mkdir } from "node:fs/promises";
+import { databaseFixture } from "./database-fixture.js";
+const fixture = await databaseFixture();
 const { default: app } = await import("../server/app.js");
 const server = app.listen(0, "127.0.0.1");
-await new Promise((resolve) => server.once("listening", resolve));
+await new Promise((r) => server.once("listening", r));
 const base = `http://127.0.0.1:${server.address().port}`;
 process.env.APP_ORIGIN = base;
 const browser = await chromium.launch({
@@ -16,106 +14,229 @@ const browser = await chromium.launch({
   args: ["--enable-unsafe-swiftshader"],
 });
 try {
-  const page = await browser.newPage({
-      viewport: { width: 1440, height: 900 },
+  const userContext = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      reducedMotion: "reduce",
     }),
+    adminContext = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      reducedMotion: "reduce",
+    });
+  userContext.setDefaultTimeout(15000);
+  adminContext.setDefaultTimeout(15000);
+  const page = await userContext.newPage(),
+    admin = await adminContext.newPage(),
     errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(base + "/auth.html");
-  await page.getByLabel("Your name").fill("Browser Member");
-  await page.getByLabel("Email", { exact: true }).fill("browser@example.test");
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill("Long-browser-password");
-  await page.getByRole("button", { name: "Create my account" }).click();
-  await page.waitForURL("**/forest.html");
-  await page.locator("#forest-canvas").waitFor();
+  for (const p of [page, admin]) {
+    p.on("pageerror", (e) => errors.push(e.message));
+    p.on("response", (r) => {
+      if (r.url().includes("/api/") && r.status() >= 400)
+        console.log("API response", r.status(), new URL(r.url()).pathname);
+    });
+  }
+  async function register(p, name, email) {
+    await p.goto(base + "/auth.html");
+    await p.getByLabel("Your name").fill(name);
+    await p.getByLabel("Email", { exact: true }).fill(email);
+    await p.getByLabel("Password", { exact: true }).fill("BrowserPassword123!");
+    await p.getByRole("button", { name: "Create my account" }).click();
+    await p.waitForURL("**/dashboard.html");
+    await p.locator(".journey-score").waitFor();
+  }
+  console.log("Browser: registering member and reviewer");
+  await register(page, "Browser Member", "browser@example.test");
+  await register(admin, "Browser Reviewer", "reviewer@example.test");
+  await fixture.rows(
+    "UPDATE users SET role='admin' WHERE email='reviewer@example.test'",
+  );
+  console.log("Browser: starting challenge");
   await page.goto(base + "/challenges.html");
-  await page.getByRole("button", { name: "Record action" }).first().click();
-  await page.getByRole("button", { name: "Completed today" }).waitFor();
-  assert.equal(await page.locator("#points").textContent(), "20");
-  await page.reload();
-  await page.getByRole("button", { name: "Completed today" }).waitFor();
-  await page.goto(base + "/forest.html");
+  await page.getByRole("link", { name: "Recycle Today", exact: true }).click();
+  await page.getByRole("button", { name: "Start challenge" }).click();
+  await page.locator("#proof-form").waitFor();
+  const image = await sharp({
+    create: { width: 100, height: 100, channels: 3, background: "#44724f" },
+  })
+    .png()
+    .toBuffer();
+  await page.getByLabel(/Upload evidence/).setInputFiles({
+    name: "evidence.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
+  await page.locator("#proof-preview").waitFor({ state: "visible" });
   await page
-    .getByRole("button", { name: "Buy for 20 points", exact: true })
+    .getByLabel("What did you do?")
+    .fill(
+      "I sorted clean paper and bottles into the correct recycling collection today.",
+    );
+  await page.getByLabel("Optional location").fill("Community collection point");
+  await page.getByRole("button", { name: "Submit for verification" }).click();
+  await page
+    .getByRole("heading", { name: "Your proof is in the queue." })
+    .waitFor();
+  await page.goto(base + "/dashboard.html");
+  await expect(page.locator(".score-number")).toHaveText("0");
+  await expect(page.locator(".status-PENDING")).toHaveCount(1);
+  await admin.goto(base + "/admin.html");
+  await admin.getByRole("button", { name: "Review evidence" }).click();
+  await admin.locator(".review-evidence img").waitFor();
+  await expect(admin.locator(".review-evidence img")).toBeVisible();
+  assert.equal(
+    await admin
+      .locator(".review-evidence img")
+      .evaluate((el) => el.complete && el.naturalWidth > 0),
+    true,
+  );
+  await admin
+    .getByRole("button", { name: "Approve evidence", exact: true })
     .click();
-  await page.getByRole("button", { name: "Place ↗", exact: true }).waitFor();
-  await page.getByRole("button", { name: "Place ↗", exact: true }).click();
-  await page.locator(".clearing.occupied").waitFor();
+  await admin.getByRole("heading", { name: "All caught up." }).waitFor();
   await page.reload();
-  await page.locator(".clearing.occupied").waitFor();
-  assert.equal(await page.locator(".wallet-balance strong").textContent(), "0");
-  await page.goto(base + "/journey.html");
-  await page.getByRole("button", { name: "goals", exact: true }).click();
-  await page.getByLabel("Goal name").fill("One recycling action");
-  await page.getByRole("combobox", { name: /Category/ }).selectOption("waste");
-  await page.getByLabel("Target actions").fill("1");
-  await page
-    .getByLabel("Deadline (UTC)")
-    .fill(new Date().toISOString().slice(0, 10));
-  await page.getByRole("button", { name: "Set goal" }).click();
-  await page.locator(".goal-item").waitFor();
-  assert.match(await page.locator(".goal-item").textContent(), /completed/);
-  await page.getByRole("button", { name: "journal", exact: true }).click();
-  await page.getByRole("button", { name: "Add note / photo" }).click();
-  await page.getByLabel("Your note").fill("Sorted paper and glass today.");
-  const png = await page.evaluate(() => {
-    const c = document.createElement("canvas");
-    c.width = 20;
-    c.height = 20;
-    c.getContext("2d").fillRect(0, 0, 20, 20);
-    return c.toDataURL("image/png").split(",")[1];
+  await expect(page.locator(".score-number")).toHaveText("20");
+  await expect(page.locator(".trust-strip strong")).toHaveText("52%");
+  await expect(page.getByText("First Seed", { exact: true })).toBeVisible();
+  await page.goto(base + "/forest.html");
+  await page.locator("#forest-canvas").waitFor({ state: "attached" });
+  await expect(page.locator(".forest-hud")).toContainText("20 Eco Points");
+  await page.getByRole("button", { name: "Night", exact: true }).click();
+  await page.getByRole("button", { name: "Inspect trees" }).click();
+  await expect(page.locator("#object-title")).toHaveText("1 trees unlocked");
+  await page.goto(base + "/leaderboard.html");
+  await expect(page.locator(".rank-row")).toContainText("Browser Member");
+  await expect(page.locator(".rank-row")).toContainText("52%");
+  // Rejection and correction are real UI paths, not direct point edits.
+  await page.goto(base + "/challenge.html?id=2");
+  await page.getByRole("button", { name: "Start challenge" }).click();
+  await page.getByLabel(/Upload evidence/).setInputFiles({
+    name: "energy.png",
+    mimeType: "image/png",
+    buffer: image,
   });
   await page
-    .getByLabel("Photo (JPEG or PNG, up to 5 MB)")
-    .setInputFiles({
-      name: "test.png",
-      mimeType: "image/png",
-      buffer: Buffer.from(png, "base64"),
-    });
-  await page.locator("#photo-preview").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Save entry" }).click();
-  await page.locator(".journal-entry img").waitFor();
-  assert.match(
-    await page.locator(".journal-note").textContent(),
-    /Sorted paper/,
+    .getByLabel("What did you do?")
+    .fill("I switched off idle lights in an unused room before leaving.");
+  await page.getByRole("button", { name: "Submit for verification" }).click();
+  await page
+    .getByRole("heading", { name: "Your proof is in the queue." })
+    .waitFor();
+  await admin.reload();
+  await admin.getByRole("button", { name: "Review evidence" }).click();
+  await admin
+    .getByLabel("Review note / optional rejection reason")
+    .fill("Please show which lights were switched off.");
+  await admin
+    .getByRole("button", { name: "Reject evidence", exact: true })
+    .click();
+  await admin.getByRole("heading", { name: "All caught up." }).waitFor();
+  await page.reload();
+  await expect(page.locator("#proof-section")).toContainText(
+    "Please show which lights were switched off.",
   );
-  const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Download report" }).click();
-  assert.match((await download).suggestedFilename(), /ecoverse-impact.*html/);
-  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("link", { name: "Resubmit proof" }),
+  ).toBeVisible();
+  await page.goto(base + "/profile.html");
+  await page.getByLabel("Your name").fill("Greener Browser");
+  await page.getByRole("button", { name: "Save profile" }).click();
+  await expect(page.locator("#profile-result")).toHaveText("Profile saved.");
+  await page.goto(base + "/settings.html");
+  await page.locator("#public-forest").check();
+  await page.goto(base + "/showcase.html?id=1");
+  await page.locator(".showcase-world").waitFor();
+  await page.goto(base + "/community.html");
+  await page.locator(".community-rail").waitFor();
+  await expect(
+    page.getByRole("heading", { name: "Plastic-Free Month" }),
+  ).toBeVisible();
+  await page.goto(base + "/explore.html");
+  await page.locator(".quiz-panel").waitFor();
+  await page
+    .getByLabel("Choose a locally suitable native plant and care for it")
+    .check();
+  await page.getByRole("button", { name: "Check answer" }).click();
+  await expect(page.locator(".quiz-panel [role=status]")).toContainText(
+    "Correct.",
+  );
   await page.goto(base + "/journey.html");
   await page.locator(".calendar-grid").waitFor();
+  const download = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download report" }).click();
+  assert.match((await download).suggestedFilename(), /ecoverse-impact/);
+  await mkdir(".local", { recursive: true });
+  await page.goto(base + "/dashboard.html");
+  await page.locator(".dashboard-landscape").waitFor();
+  await page.screenshot({
+    path: ".local/verified-dashboard-desktop.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const route of [
+    "dashboard",
+    "challenges",
+    "challenge",
+    "profile",
+    "forest",
+    "impact",
+    "leaderboard",
+    "journey",
+    "explore",
+    "community",
+    "settings",
+    "demo",
+    "showcase",
+  ]) {
+    await page.goto(
+      base +
+        "/" +
+        route +
+        ".html" +
+        (route === "challenge" ? "?id=2" : route === "showcase" ? "?id=1" : ""),
+    );
+    await page
+      .locator(".loading-state")
+      .waitFor({ state: "detached" })
+      .catch(() => {});
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth + 1,
+      ),
+      false,
+      route + " overflows mobile",
+    );
+    if (route === "challenge" || route === "dashboard")
+      await page.screenshot({
+        path: ".local/verified-" + route + "-mobile.png",
+        fullPage: true,
+      });
+  }
+  await admin.setViewportSize({ width: 390, height: 844 });
+  await admin.goto(base + "/admin.html");
+  await admin.locator(".admin-metrics").waitFor();
   assert.equal(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth > innerWidth,
+    await admin.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth + 1,
     ),
     false,
+    "admin overflow",
   );
-  await page.screenshot({ path: ".local/journey-mobile.png" });
-  await page.goto(base + "/forest.html");
-  await page.locator(".shop-grid").waitFor();
+  await page.goto(base + "/index.html");
+  await expect(
+    page.getByRole("heading", { name: "Your actions. Grow a world." }),
+  ).toBeVisible();
   assert.equal(
     await page.evaluate(
-      () => document.documentElement.scrollWidth > innerWidth,
+      () => document.documentElement.scrollWidth > innerWidth + 1,
     ),
     false,
-  );
-  await page.goto(base + "/impact.html");
-  await page.locator(".impact-totals").waitFor();
-  assert.equal(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth > innerWidth,
-    ),
-    false,
+    "home overflow",
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Browser passed: registration, reward, purchase/placement persistence, goals, photo journal, report download, mobile layouts, no page errors.",
+    "Browser flow passed: registration → proof → review → points → trust → forest → badge → leaderboard; rejection, quizzes, profile, report and nine mobile views.",
   );
 } finally {
   await browser.close();
-  await new Promise((resolve) => server.close(resolve));
-  await rm(directory, { recursive: true, force: true });
+  await new Promise((r) => server.close(r));
+  await fixture.cleanup();
 }

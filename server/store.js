@@ -1,32 +1,67 @@
-import 'dotenv/config';
-import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
-import {resolve,dirname} from 'node:path';
-import {challenges} from './catalog.js';
-
-// One Express process owns this file. Writes are serialized and published atomically.
-export const dataPath=resolve(process.env.DATA_FILE||'data/ecoverse.json');
-await mkdir(dirname(dataPath),{recursive:true});
-let state;
-try { state=JSON.parse(await readFile(dataPath,'utf8')); }
-catch(error){
- if(error.code!=='ENOENT')throw new Error('Cannot read EcoVerse data. Restore the data file before starting.',{cause:error});
- state={version:1,users:[],challenges:structuredClone(challenges),completions:[],transactions:[],badges:[]};
- await writeFile(dataPath,JSON.stringify(state,null,2),{flag:'wx',mode:0o600});
+// Personal goals, private journal and cosmetic workshop use per-user JSON documents
+// in MySQL. Financial/review data remains relational and is never written here.
+import { AsyncLocalStorage } from "node:async_hooks";
+import { rows, transaction, pool } from "./db.js";
+const context = new AsyncLocalStorage();
+export const featureContext = (req, res, next) =>
+  context.run(req.user.id, next);
+async function snapshot(userId, db = pool) {
+  const [extra] = await rows(
+      "SELECT payload FROM user_extras WHERE user_id=?",
+      [userId],
+      db,
+    ),
+    payload = extra?.payload || {};
+  const completions = await rows(
+    "SELECT c.*,ch.title,ch.category FROM challenge_completions c JOIN challenges ch ON ch.id=c.challenge_id WHERE c.user_id=? AND c.status='APPROVED'",
+    [userId],
+    db,
+  );
+  const transactions = await rows(
+    "SELECT t.* FROM point_transactions t JOIN challenge_completions c ON c.id=t.reference_id AND c.status='APPROVED' WHERE t.user_id=? AND t.type='verified_action'",
+    [userId],
+    db,
+  );
+  return {
+    userId,
+    ...payload,
+    completions,
+    transactions,
+    challenges: await rows("SELECT * FROM challenges", [], db),
+    ...Object.fromEntries(
+      ["goals", "journal", "purchases", "placements", "questClaims"].map(
+        (k) => [k, payload[k] || []],
+      ),
+    ),
+  };
 }
-if(state.version!==1||!['users','challenges','completions','transactions','badges'].every(k=>Array.isArray(state[k])))throw new Error('Invalid EcoVerse data file. Existing data has not been overwritten.');
-let queue=Promise.resolve();
-// Additive upgrade: preserve all existing accounts and progress.
-for(const key of ['goals','journal','purchases','placements','questClaims']){
- if(state[key]===undefined)state[key]=[];
- if(!Array.isArray(state[key]))throw new Error(`Invalid ${key} data; existing file was not changed.`);
+export const readStore = () => snapshot(context.getStore());
+export async function changeStore(change) {
+  const userId = context.getStore();
+  return transaction(async (db) => {
+    await rows("SELECT id FROM users WHERE id=? FOR UPDATE", [userId], db);
+    const data = await snapshot(userId, db),
+      result = await change(data);
+    const payload = Object.fromEntries(
+      [
+        "goals",
+        "journal",
+        "purchases",
+        "placements",
+        "questClaims",
+        "forestGame",
+        "legacyActions",
+      ]
+        .filter((k) => data[k] !== undefined)
+        .map((k) => [k, data[k]]),
+    );
+    await rows(
+      "INSERT INTO user_extras(user_id,payload) VALUES (?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)",
+      [userId, JSON.stringify(payload)],
+      db,
+    );
+    return result;
+  });
 }
-export function readStore(){return structuredClone(state)}
-export function changeStore(change){
- const operation=queue.then(async()=>{
-   const next=structuredClone(state);const result=await change(next);
-   const temporary=dataPath+'.tmp';await writeFile(temporary,JSON.stringify(next,null,2),{mode:0o600});
-   await rename(temporary,dataPath);state=next;return structuredClone(result);
- });
- queue=operation.catch(()=>{});return operation;
-}
-export const nextId=rows=>rows.reduce((max,row)=>Math.max(max,row.id),0)+1;
+export const nextId = (rows) =>
+  rows.reduce((n, r) => Math.max(n, r.id || 0), 0) + 1;

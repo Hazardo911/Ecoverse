@@ -7,7 +7,14 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        journey: 'journey.html',
+        dashboard: "dashboard.html",
+        challenge: "challenge.html",
+        profile: "profile.html",
+        community: "community.html",
+        settings: "settings.html",
+        showcase: "showcase.html",
+        demo: "demo.html",
+        journey: "journey.html",
         home: "index.html",
         explore: "explore.html",
         challenges: "challenges.html",

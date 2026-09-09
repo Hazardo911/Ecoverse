@@ -20,7 +20,7 @@ async function load() {
   }
 }
 function render() {
-  root.innerHTML = `<div class="journey-stats"><div><strong>${summary.streak.current}<small> days</small></strong><span>Current streak</span></div><div><strong>${summary.streak.longest}<small> days</small></strong><span>Best streak</span></div><div><strong>${summary.wallet.balance}</strong><span>Spendable points</span></div><a class="button button-dark" href="/api/user/report" download>Download report ↓</a></div><p class="field-note">${summary.streak.activeToday ? "You showed up today. Come back tomorrow to keep growing." : "One completed action today keeps your momentum going."} Days and quests use UTC.</p><div class="filters journey-tabs">${tabs.map((t) => `<button class="${view === t ? "active" : ""}" data-view="${t}">${t}</button>`).join("")}</div><div id="journey-panel"></div>`;
+  root.innerHTML = `<div class="journey-stats"><div><strong>${summary.streak.current}<small> days</small></strong><span>Current streak</span></div><div><strong>${summary.streak.longest}<small> days</small></strong><span>Best streak</span></div><div><strong>${summary.wallet.balance}</strong><span>Spendable points</span></div><a class="button button-dark" href="/api/user/report" download>Download report ↓</a></div><p class="field-note">${summary.streak.activeToday ? "You showed up today. Come back tomorrow to keep growing." : "An approved action counts towards your momentum. Pending proof does not count yet."} Days and quests use UTC.</p><div class="filters journey-tabs">${tabs.map((t) => `<button class="${view === t ? "active" : ""}" data-view="${t}">${t}</button>`).join("")}</div><div id="journey-panel"></div>`;
   root.querySelectorAll("[data-view]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -63,7 +63,7 @@ function calendar() {
           .forEach((x) => x.classList.toggle("selected", x === b));
         const rows = entries.filter((e) => e.completion_day === b.dataset.day);
         document.querySelector("#day-detail").innerHTML =
-          `<h3>${b.dataset.day}</h3>${rows.length ? rows.map((e) => `<p>✓ ${esc(e.title)}</p>`).join("") : "<p>No actions recorded on this day.</p>"}`;
+          `<h3>${b.dataset.day}</h3>${rows.length ? rows.map((e) => `<p>✓ ${esc(e.title)}</p>`).join("") : "<p>No verified actions on this day.</p>"}`;
       }),
   );
 }

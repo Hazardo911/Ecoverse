@@ -1,72 +1,370 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {mkdtemp,readFile,rm} from 'node:fs/promises';
-import {tmpdir} from 'node:os';
-import {join} from 'node:path';
-
-test('database-free accounts, atomic rewards, persistence, origins, admin and logout',async()=>{
- const directory=await mkdtemp(join(tmpdir(),'ecoverse-test-'));
- process.env.DATA_FILE=join(directory,'state.json');process.env.NODE_ENV='development';
- const {default:app}=await import('../server/app.js');
- const {changeStore}=await import('../server/store.js');
- const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
- const base=`http://127.0.0.1:${server.address().port}/api`;let cookie='';
- const request=async(path,method='GET',body,origin='http://localhost:3001')=>{const response=await fetch(base+path,{method,headers:{'Content-Type':'application/json',Origin:origin,Cookie:cookie},body:body===undefined?undefined:JSON.stringify(body)});if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return {status:response.status,...await response.json()}};
- try{
- assert.equal((await request('/health')).data.databaseRequired,false);
- assert.equal((await request('/user/progress')).status,401);
- assert.equal((await request('/auth/register','POST',{},'https://untrusted.example')).status,403);
- const credentials={name:'Test Member',email:'member@example.test',password:'Long-test-password-123'};
- const registered=await request('/auth/register','POST',credentials);assert.equal(registered.status,201);const id=registered.data.id;assert.equal(registered.data.password_hash,undefined);
- assert.equal((await request('/auth/register','POST',credentials)).status,409);
- assert.equal((await request('/auth/me')).data.name,'Test Member');
- const catalog=(await request('/challenges')).data;assert.equal(catalog.length,12);
- assert.equal((await request('/challenges/1/complete','POST',{points:999})).status,400);
- const attempts=await Promise.all([request('/challenges/1/complete','POST',{},'http://localhost:5173'),request('/challenges/1/complete','POST',{},'http://127.0.0.1:3001')]);assert.deepEqual(attempts.map(x=>x.status).sort(),[201,409]);
- const state=(await request('/user/progress')).data;assert.equal(state.ecoPoints,20);assert.equal(state.challengesCompleted,1);assert.equal(state.badges[0].id,'first-seed');
- const saved=JSON.parse(await readFile(process.env.DATA_FILE,'utf8'));assert.equal(saved.transactions.length,1);assert.notEqual(saved.users[0].password_hash,credentials.password);
- for(const period of ['global','weekly','monthly'])assert.equal((await request('/leaderboard?period='+period)).data[0].points,20);
- assert.equal((await request('/user/impact')).data.categories[0].actions,1);
- assert.equal((await request('/admin/stats')).status,403);
- await changeStore(data=>{data.users[0].role='admin';data.completions[0].completion_day='2020-01-01';return true});
- assert.equal((await request('/admin/stats')).status,200);
- const draft={title:'New challenge',description:'A test challenge description.',category:'water',difficulty:'Easy',points:10,is_active:true};
- const created=await request('/admin/challenges','POST',draft);assert.equal(created.status,201);
- assert.equal((await request('/admin/challenges/'+created.data.id,'PATCH',{...draft,is_active:false})).status,200);
- assert.equal((await request('/challenges/'+created.data.id)).status,404);
- assert.equal((await request('/challenges/1/complete','POST',{})).status,201);
- assert.equal((await request('/user/progress')).data.ecoPoints,40);
- const goal=await request('/user/goals','POST',{title:'Keep <growing>',category:'waste',target:1,deadline:new Date().toISOString().slice(0,10)});assert.equal(goal.status,201);assert.equal(goal.data.status,'completed');
- assert.equal((await request('/user/goals','POST',{title:'Impossible date',category:'all',target:1,deadline:'2026-02-31'})).status,400);
- const beforePurchase=(await request('/user/progress')).data;
- const purchases=await Promise.all([request('/user/shop/fern/buy','POST',{}),request('/user/shop/fern/buy','POST',{})]);assert.deepEqual(purchases.map(r=>r.status).sort(),[201,409]);
- const afterPurchase=(await request('/user/progress')).data;assert.equal(afterPurchase.ecoPoints,beforePurchase.ecoPoints);assert.equal(afterPurchase.forestLevel,beforePurchase.forestLevel);assert.equal(afterPurchase.spendablePoints,beforePurchase.ecoPoints-20);
- assert.equal((await request('/user/shop/lantern/buy','POST',{})).status,409);
- assert.equal((await request('/user/forest/layout','PUT',{placements:[{item_id:'lantern',slot:0}]})).status,403);
- assert.equal((await request('/user/forest/layout','PUT',{placements:[{item_id:'fern',slot:0}]})).status,200);
- assert.equal((await request('/user/shop')).data.placements[0].slot,0);
- const journal=(await request('/user/journal')).data,entryId=journal[0].id;
- const photo='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1kAAAAASUVORK5CYII=';
- assert.equal((await request('/user/journal/'+entryId,'PUT',{note:'Used my refill bottle.',photo})).status,200);
- assert.equal((await request('/user/journal')).data[0].note,'Used my refill bottle.');
- assert.equal((await request('/user/journal/'+entryId,'PUT',{note:'Invalid',photo:'data:image/svg+xml;base64,PHN2Zz4='})).status,400);
- for(const challengeId of [2,3,4,5])assert.equal((await request('/challenges/'+challengeId+'/complete','POST',{})).status,201);
- assert.equal((await request('/user/journey')).data.quests.find(q=>q.id==='balanced').progress,3);
- const claims=await Promise.all([request('/user/quests/balanced/claim','POST',{}),request('/user/quests/balanced/claim','POST',{})]);assert.deepEqual(claims.map(r=>r.status).sort(),[200,409]);
- assert.equal((await request('/user/quests/three-days/claim','POST',{})).status,409);
- const report=await fetch(base+'/user/report',{headers:{Cookie:cookie}});assert.equal(report.status,200);assert.match(report.headers.get('content-disposition'),/attachment/);const html=await report.text();assert.ok(html.includes('Keep &lt;growing&gt;'));assert.ok(!html.includes('password_hash'));
- const originalCookie=cookie;cookie='';const other=await request('/auth/register','POST',{name:'Other member',email:'other@example.test',password:'Other-long-password'});assert.equal(other.status,201);
- assert.equal((await request('/user/journal/'+entryId,'PUT',{note:'Cross-user change',photo:null})).status,404);
- assert.equal((await request('/user/goals/'+goal.data.id,'DELETE',{})).status,404);
- cookie=originalCookie;
- assert.equal((await request('/auth/logout','POST',{})).status,200);
- assert.equal((await request('/auth/me')).status,401);
- assert.equal((await request('/auth/login','POST',{email:credentials.email,password:'wrong-password'})).status,401);
- assert.equal((await request('/auth/login','POST',credentials)).status,200);
- assert.equal((await request('/user/forest')).data.ecoPoints,155);
- const {streaks,weekStart}=await import('../server/features.js');
- const days=['2026-09-04','2026-09-05','2026-09-05','2026-09-06'].map(completion_day=>({completion_day}));
- assert.deepEqual(streaks(days,'2026-09-07'),{current:3,longest:3,activeDays:3,activeToday:false});
- assert.equal(streaks(days,'2026-09-08').current,0);assert.equal(weekStart('2026-09-06'),'2026-08-31');assert.equal(weekStart('2026-09-07'),'2026-09-07');
- }finally{await new Promise(resolve=>server.close(resolve));await rm(directory,{recursive:true,force:true})}
-});
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import sharp from "sharp";
+import { databaseFixture } from "./database-fixture.js";
+test(
+  "MySQL verification flow, fraud controls, rollback, learning and workshop",
+  { timeout: 120000 },
+  async () => {
+    const fixture = await databaseFixture();
+    const { default: app } = await import("../server/app.js");
+    const server = app.listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r));
+    const base = `http://127.0.0.1:${server.address().port}/api`;
+    const client = () => {
+      let cookie = "";
+      return async (path, method = "GET", body, extra = {}) => {
+        const r = await fetch(base + path, {
+          method,
+          headers: { "Content-Type": "application/json", cookie, ...extra },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        const set = r.headers.get("set-cookie");
+        if (set) cookie = set.split(";")[0];
+        const result = await r.json();
+        return { status: r.status, ...result };
+      };
+    };
+    const member = client(),
+      reviewer = client(),
+      stranger = client(),
+      anon = client();
+    const expect = async (p, status) => {
+      const r = await p;
+      assert.equal(r.status, status, JSON.stringify(r));
+      return r.data;
+    };
+    try {
+      const account = await expect(
+        member("/auth/register", "POST", {
+          name: "Test Member",
+          email: "member@example.test",
+          password: "StrongPassword123!",
+        }),
+        201,
+      );
+      const admin = await expect(
+        reviewer("/auth/register", "POST", {
+          name: "Test Reviewer",
+          email: "reviewer@example.test",
+          password: "StrongPassword123!",
+        }),
+        201,
+      );
+      await expect(
+        stranger("/auth/register", "POST", {
+          name: "Other Member",
+          email: "other@example.test",
+          password: "StrongPassword123!",
+        }),
+        201,
+      );
+      await fixture.rows("UPDATE users SET role='admin' WHERE id=?", [
+        admin.id,
+      ]);
+      assert.equal(
+        (
+          await fixture.rows("SELECT password_hash FROM users WHERE id=?", [
+            account.id,
+          ])
+        )[0].password_hash.includes("StrongPassword"),
+        false,
+      );
+      await expect(member("/auth/logout", "POST", {}), 200);
+      await expect(
+        member("/auth/login", "POST", {
+          email: "member@example.test",
+          password: "StrongPassword123!",
+        }),
+        200,
+      );
+      const state = await expect(member("/user/progress"), 200);
+      assert.equal(state.ecoPoints, 0);
+      assert.equal(state.trustScore, 50);
+      assert.equal(state.treesUnlocked, 0);
+      await expect(anon("/user/progress"), 401);
+      await expect(member("/admin/stats"), 403);
+      await expect(
+        member(
+          "/challenges/1/start",
+          "POST",
+          {},
+          { origin: "https://evil.example" },
+        ),
+        403,
+      );
+      await expect(
+        member("/challenges/1/start", "POST", { points: 9000 }),
+        400,
+      );
+      await expect(member("/challenges/1/complete", "POST", {}), 410);
+      const starts = await Promise.all([
+        member("/challenges/1/start", "POST", {}),
+        member("/challenges/1/start", "POST", {}),
+      ]);
+      assert.deepEqual(starts.map((r) => r.status).sort(), [201, 409]);
+      const attempt = starts.find((r) => r.status === 201).data;
+      await expect(
+        member("/challenges/1/submit", "POST", {
+          description:
+            "Sorted clean recyclables into the correct local collection.",
+        }),
+        400,
+      );
+      await expect(
+        member("/challenges/1/submit", "POST", {
+          description:
+            "Sorted clean recyclables into the correct local collection.",
+          photo: "data:image/png;base64,AAAA",
+        }),
+        400,
+      );
+      const image = await sharp({
+          create: { width: 32, height: 32, channels: 3, background: "#315e39" },
+        })
+          .png()
+          .toBuffer(),
+        photo = "data:image/png;base64," + image.toString("base64");
+      const proof = {
+        description:
+          "Sorted clean recyclables into the correct local collection.",
+        location: "Community recycling point",
+        photo,
+      };
+      await expect(
+        member("/challenges/1/submit", "POST", { ...proof, points: 500 }),
+        400,
+      );
+      await expect(member("/challenges/1/submit", "POST", proof), 201);
+      assert.equal((await expect(member("/user/progress"), 200)).ecoPoints, 0);
+      assert.deepEqual(await expect(member("/leaderboard"), 200), []);
+      await expect(member("/challenges/1/submit", "POST", proof), 409);
+      const detail = await expect(
+        reviewer("/admin/submissions/" + attempt.id),
+        200,
+      );
+      assert.equal(detail.status, "PENDING");
+      assert.ok(detail.proof_url);
+      // Private photo route: real binary response, not the JSON helper.
+      const photoName = detail.proof_url.split("/").pop();
+      await expect(anon("/proofs/" + photoName), 401);
+      await expect(stranger("/proofs/" + photoName), 404);
+      await expect(
+        member(`/admin/submissions/${attempt.id}/approve`, "POST", {}),
+        403,
+      );
+      const decisions = await Promise.all([
+        reviewer(`/admin/submissions/${attempt.id}/approve`, "POST", {}),
+        reviewer(`/admin/submissions/${attempt.id}/approve`, "POST", {}),
+      ]);
+      assert.deepEqual(decisions.map((r) => r.status).sort(), [200, 409]);
+      const approved = await expect(member("/user/progress"), 200);
+      assert.equal(approved.ecoPoints, 20);
+      assert.equal(approved.trustScore, 52);
+      assert.equal(approved.verifiedActions, 1);
+      assert.equal(approved.treesUnlocked, 1);
+      assert.ok(approved.badges.some((b) => b.id === "first-seed"));
+      assert.equal(approved.leaderboardRank, 1);
+      assert.equal(
+        (
+          await fixture.rows(
+            "SELECT COUNT(*) n FROM point_transactions WHERE reference_id=?",
+            [attempt.id],
+          )
+        )[0].n,
+        1,
+      );
+      for (const period of ["global", "weekly", "monthly"]) {
+        const board = await expect(
+          member("/leaderboard?period=" + period),
+          200,
+        );
+        assert.equal(board[0].points, 20);
+        assert.equal(board[0].trustScore, 52);
+      }
+      await expect(member("/challenges/1/start", "POST", {}), 409);
+      const second = await expect(
+        member("/challenges/2/start", "POST", {}),
+        201,
+      );
+      await expect(member("/challenges/2/submit", "POST", proof), 201);
+      assert.match(
+        (await expect(reviewer("/admin/submissions/" + second.id), 200))
+          .review_flags,
+        /Matching image/,
+      );
+      await expect(
+        reviewer(`/admin/submissions/${second.id}/reject`, "POST", {
+          reason: "Please show the switched-off devices.",
+        }),
+        200,
+      );
+      const rejected = await expect(member("/user/progress"), 200);
+      assert.equal(rejected.ecoPoints, 20);
+      assert.equal(rejected.trustScore, 47);
+      assert.equal(rejected.verifiedActions, 1);
+      await expect(
+        reviewer(`/admin/submissions/${second.id}/reject`, "POST", {}),
+        409,
+      );
+      await expect(
+        member("/challenges/2/submit", "POST", {
+          ...proof,
+          description:
+            "Switched off the idle lights and photographed the devices.",
+        }),
+        201,
+      );
+      // Force a failure midway through approval: every preceding write must roll back.
+      await fixture.pool.query(
+        "CREATE TRIGGER test_award_failure BEFORE INSERT ON point_transactions FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='intentional rollback test'",
+      );
+      await expect(
+        reviewer(`/admin/submissions/${second.id}/approve`, "POST", {}),
+        500,
+      );
+      assert.equal(
+        (await expect(reviewer("/admin/submissions/" + second.id), 200)).status,
+        "PENDING",
+      );
+      assert.equal(
+        (await expect(member("/user/progress"), 200)).trustScore,
+        47,
+      );
+      await fixture.pool.query("DROP TRIGGER test_award_failure");
+      await expect(
+        reviewer(`/admin/submissions/${second.id}/approve`, "POST", {}),
+        200,
+      );
+      assert.equal((await expect(member("/user/progress"), 200)).ecoPoints, 35);
+      const own = await expect(
+        reviewer("/challenges/3/start", "POST", {}),
+        201,
+      );
+      await expect(reviewer("/challenges/3/submit", "POST", proof), 201);
+      await expect(
+        reviewer(`/admin/submissions/${own.id}/approve`, "POST", {}),
+        403,
+      );
+      // Low trust remains usable and mandates a photo, even when the catalog does not.
+      await fixture.rows("UPDATE users SET trust_score=0 WHERE id=?", [
+        account.id,
+      ]);
+      await fixture.rows(
+        "UPDATE challenges SET proof_required=FALSE WHERE id=4",
+      );
+      const low = await expect(member("/challenges/4/start", "POST", {}), 201);
+      await expect(
+        member("/challenges/4/submit", "POST", {
+          description: proof.description,
+        }),
+        400,
+      );
+      await expect(member("/challenges/4/submit", "POST", proof), 201);
+      await expect(
+        reviewer(`/admin/submissions/${low.id}/reject`, "POST", {}),
+        200,
+      );
+      assert.equal((await expect(member("/user/progress"), 200)).trustScore, 0);
+      const beforeQuiz = await expect(member("/user/progress"), 200);
+      const answers = {
+        forest: 1,
+        climate: 0,
+        water: 2,
+        wildlife: 1,
+        energy: 2,
+        waste: 0,
+        living: 1,
+      };
+      for (const [topic, answer] of Object.entries(answers))
+        await expect(
+          member("/learn/" + topic + "/quiz", "POST", { answer }),
+          200,
+        );
+      const afterQuiz = await expect(member("/user/progress"), 200);
+      assert.equal(afterQuiz.ecoPoints, beforeQuiz.ecoPoints);
+      assert.equal(afterQuiz.trustScore, beforeQuiz.trustScore);
+      assert.ok(
+        afterQuiz.badges.some(
+          (b) => b.id === "curious-mind" && b.kind === "learning",
+        ),
+      );
+      const buys = await Promise.all([
+        member("/user/shop/fern/buy", "POST", {}),
+        member("/user/shop/fern/buy", "POST", {}),
+      ]);
+      assert.deepEqual(buys.map((r) => r.status).sort(), [201, 409]);
+      assert.equal((await expect(member("/user/progress"), 200)).ecoPoints, 35);
+      await expect(
+        member("/user/forest/layout", "PUT", {
+          placements: [{ item_id: "lantern", slot: 0 }],
+        }),
+        403,
+      );
+      await expect(
+        member("/user/forest/layout", "PUT", {
+          placements: [{ item_id: "fern", slot: 0 }],
+        }),
+        200,
+      );
+      const goal = await expect(
+        member("/user/goals", "POST", {
+          title: "Verified habits",
+          category: "all",
+          target: 2,
+          deadline: new Date().toISOString().slice(0, 10),
+        }),
+        201,
+      );
+      assert.equal(goal.progress, 2);
+      assert.equal((await expect(member("/user/journal"), 200)).length, 2);
+      await expect(member("/user/journey"), 200);
+      await expect(member("/user/impact"), 200);
+      // Two different approvals for one user must update cached totals without a lost update.
+      const concurrent = [];
+      for (const id of [6, 7]) {
+        concurrent.push(
+          await expect(member(`/challenges/${id}/start`, "POST", {}), 201),
+        );
+        await expect(member(`/challenges/${id}/submit`, "POST", proof), 201);
+      }
+      await Promise.all(
+        concurrent.map((c) =>
+          expect(
+            reviewer(`/admin/submissions/${c.id}/approve`, "POST", {}),
+            200,
+          ),
+        ),
+      );
+      assert.equal((await expect(member("/user/progress"), 200)).ecoPoints, 75);
+      assert.equal(
+        (
+          await fixture.rows("SELECT eco_points FROM users WHERE id=?", [
+            account.id,
+          ])
+        )[0].eco_points,
+        75,
+      );
+      // Trust upper bound and high-trust badge are server-side.
+      await fixture.rows("UPDATE users SET trust_score=100 WHERE id=?", [
+        account.id,
+      ]);
+      const third = await expect(
+        member("/challenges/5/start", "POST", {}),
+        201,
+      );
+      await expect(member("/challenges/5/submit", "POST", proof), 201);
+      await expect(
+        reviewer(`/admin/submissions/${third.id}/approve`, "POST", {}),
+        200,
+      );
+      assert.equal(
+        (await expect(member("/user/progress"), 200)).trustScore,
+        100,
+      );
+    } finally {
+      await new Promise((r) => server.close(r));
+      await fixture.cleanup();
+    }
+  },
+);

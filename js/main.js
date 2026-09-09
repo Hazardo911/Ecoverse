@@ -9,9 +9,10 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const hero = createWorld(document.querySelector("#eco-world"));
 const growing = createWorld(document.querySelector("#growth-world"), {
   growth: 0,
+  story: true,
 });
 const preview = createWorld(document.querySelector("#preview-world"), {
-  growth: 0.05,
+  growth: 0,
 });
 if (!reduced) {
   const lenis = new Lenis({ duration: 1.05, smoothWheel: true });
@@ -52,15 +53,16 @@ if (!reduced) {
     });
 } else {
   growing?.setGrowth(1);
+  document.querySelectorAll('.story-caption').forEach(el=>el.classList.remove('active'));
   document.querySelector(".story-caption:last-child")?.classList.add("active");
 }
 api("/user/progress")
   .then((s) => {
-    preview?.setGrowth(Math.min(1, 0.03 + s.ecoPoints / 2000));
+    preview?.setProgress(s);
     document.querySelector("#preview-title").textContent =
       `Level ${s.forestLevel} · ${s.ecoPoints.toLocaleString()} points`;
     document.querySelector("#preview-copy").textContent =
-      `${s.treesUnlocked} trees unlocked · ${s.challengesCompleted} actions recorded`;
+      `${s.treesUnlocked} trees unlocked · ${s.challengesCompleted} verified actions`;
     document.querySelector("#home-actions").textContent = s.challengesCompleted;
     document.querySelector("#home-points").textContent = s.ecoPoints;
     document.querySelector("#home-trees").textContent = s.treesUnlocked;
