@@ -7,3 +7,5 @@ outputs/
 node_modules/
 test-results/
 .git/
+scripts/create_ecoverse_report_pdf.py
+scripts/create_project_pdf.py
