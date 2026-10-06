@@ -1,0 +1,9 @@
+.env*
+.local/
+data/
+tmp/
+output/
+outputs/
+node_modules/
+test-results/
+.git/

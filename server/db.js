@@ -9,6 +9,14 @@ export const connectionOptions = {
   timezone: "Z",
   dateStrings: true,
   decimalNumbers: true,
+  ...(process.env.DB_SSL === "true"
+    ? { ssl: {
+        rejectUnauthorized: true,
+        ...(process.env.DB_SSL_CA
+          ? { ca: process.env.DB_SSL_CA.replace(/\\n/g, "\n") }
+          : {}),
+      } }
+    : {}),
 };
 export const pool = mysql.createPool({
   ...connectionOptions,

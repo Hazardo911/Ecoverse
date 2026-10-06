@@ -45,6 +45,40 @@ export async function progress(userId, db = pool) {
     [userId],
     db,
   );
+  const categoryRows = await rows(
+    "SELECT ch.category,COUNT(CASE WHEN c.status='APPROVED' THEN 1 END) approved,COUNT(CASE WHEN c.status IN ('IN_PROGRESS','PENDING') THEN 1 END) active FROM challenges ch LEFT JOIN challenge_completions c ON c.challenge_id=ch.id AND c.user_id=? WHERE ch.is_active=TRUE GROUP BY ch.category ORDER BY approved ASC,active ASC",
+    [userId],
+    db,
+  );
+  const recommendations = categoryRows
+    .filter((row) => Number(row.active) === 0)
+    .slice(0, 3)
+    .map((row) => ({
+      category: row.category,
+      title: `Try a ${row.category} action`,
+      reason:
+        Number(row.approved) === 0
+          ? `You have not completed a verified ${row.category} action yet.`
+          : `Build balance by adding another ${row.category} action to your ecosystem.`,
+    }));
+  const worldHealth = Object.fromEntries(
+    categoryRows.map((row) => [
+      row.category,
+      Math.min(100, Number(row.approved) * 20),
+    ]),
+  );
+  const nextExpedition = recommendations[0]
+    ? {
+        title: `Restore the ${recommendations[0].category}`,
+        category: recommendations[0].category,
+        reason: recommendations[0].reason,
+      }
+    : null;
+  const worldEvents = [];
+  if (points >= 200) worldEvents.push({ id: "wildlife", title: "Wildlife has returned", description: "Your verified progress has created room for new life." });
+  if (points >= 500) worldEvents.push({ id: "rainfall", title: "Rain over the forest", description: "A major growth milestone has changed the atmosphere of your world." });
+  if (points >= 1000) worldEvents.push({ id: "fireflies", title: "Fireflies at dusk", description: "Your consistent journey has unlocked a night-time world event." });
+  if (points >= 2000) worldEvents.push({ id: "ecosystem", title: "Living ecosystem", description: "Your world has reached its highest configured progression stage." });
   const payload = extras?.payload || {};
   const bonuses = (payload.questClaims || []).reduce((n, q) => n + q.reward, 0),
     spent = (payload.purchases || []).reduce((n, p) => n + p.cost, 0);
@@ -74,6 +108,10 @@ export async function progress(userId, db = pool) {
     rejectedSubmissions: Number(counts.rejected || 0),
     activity,
     recentVerified: activity.filter((c) => c.status === "APPROVED").slice(0, 6),
+    recommendations,
+    worldHealth,
+    nextExpedition,
+    worldEvents,
     completedChallenges: activity
       .filter((c) => c.status === "APPROVED" && c.completion_day === day())
       .map((c) => c.challenge_id),

@@ -51,6 +51,7 @@ export async function changeStore(change) {
         "questClaims",
         "forestGame",
         "legacyActions",
+        "assessment",
       ]
         .filter((k) => data[k] !== undefined)
         .map((k) => [k, data[k]]),

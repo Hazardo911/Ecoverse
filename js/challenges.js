@@ -3,10 +3,12 @@ import { api, errorState, escapeHTML as esc } from "./api.js";
 import { statusPill } from "./verification-ui.js";
 const grid = document.querySelector("#challenge-grid");
 let challenges = [],
-  filter = "all";
+  filter = "all",
+  search = "";
 function render() {
   const selected = challenges.filter(
-    (c) => filter === "all" || c.category === filter,
+    (c) => (filter === "all" || c.category === filter) &&
+      (!search || `${c.title} ${c.description} ${c.category} ${c.difficulty}`.toLowerCase().includes(search)),
   );
   grid.innerHTML = selected.length
     ? selected
@@ -28,6 +30,17 @@ document.querySelectorAll("[data-filter]").forEach(
       render();
     }),
 );
+const searchInput = document.querySelector("#challenge-search");
+searchInput?.addEventListener("input", () => {
+  search = searchInput.value.trim().toLowerCase();
+  render();
+});
+document.querySelector("#clear-challenge-search")?.addEventListener("click", () => {
+  search = "";
+  if (searchInput) searchInput.value = "";
+  render();
+  searchInput?.focus();
+});
 try {
   const [catalog, s] = await Promise.all([
     api("/challenges"),
@@ -40,6 +53,13 @@ try {
   document.querySelector("#points").textContent = s?.ecoPoints ?? "—";
   document.querySelector("#completed").textContent = s?.verifiedActions ?? "—";
   document.querySelector("#level").textContent = s?.forestName ?? "—";
+  const expeditionHost = document.createElement("section");
+  expeditionHost.className = "expedition-feature";
+  const focus = s?.nextExpedition?.category || "nature";
+  const stories = { water: ["The Lost River", "A dry stream is waiting for consistent care.", "Restore the water region"], waste: ["The Vanishing Meadow", "Small waste decisions can make room for a cleaner habitat.", "Restore the meadow"], energy: ["The Grey Home", "Make everyday energy use more intentional.", "Upgrade the eco home"], transport: ["The Quiet Route", "Change one journey and start a greener movement.", "Open the city route"], nature: ["The Dying Grove", "Give local life a place to take root.", "Regrow the forest"], lifestyle: ["The Living Routine", "Turn one good choice into a repeatable practice.", "Build a sustainable habit"] };
+  const story = stories[focus] || stories.nature;
+  expeditionHost.innerHTML = `<div><p class="eyebrow">NEXT EXPEDITION / ${esc(focus)}</p><h2>${story[0]}</h2><p>${story[1]}</p></div><div class="expedition-steps"><span>01 Learn</span><span>02 Act</span><span>03 Document</span><span>04 Verify</span></div><div><strong>${story[2]}</strong><small>Choose an action below to begin</small></div>`;
+  grid.before(expeditionHost);
   render();
 } catch (e) {
   errorState(grid, e);

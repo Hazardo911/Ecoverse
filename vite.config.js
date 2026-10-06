@@ -24,6 +24,8 @@ export default defineConfig({
         about: "about.html",
         auth: "auth.html",
         admin: "admin.html",
+        connect: "connect.html",
+        assessment: "assessment.html",
       },
     },
   },

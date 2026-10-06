@@ -1,5 +1,4 @@
 import "./shell.js";
-import { createWorld } from "./world.js";
 import { api, escapeHTML as esc, toast } from "./api.js";
 let lessons = [];
 const topics = {
@@ -41,19 +40,6 @@ const topics = {
 };
 const filters = document.querySelector("#topic-filters"),
   panel = document.querySelector("#topic-panel");
-const world = createWorld(document.querySelector("#explore-world"), {
-  onSelect: (d) =>
-    select(
-      d.kind === "river" ? "water" : d.kind === "tree" ? "forest" : "wildlife",
-    ),
-});
-if (!world)
-  document
-    .querySelector(".explore-world")
-    .insertAdjacentHTML(
-      "beforeend",
-      '<p class="scene-fallback-note">Explore the field guide below. Interactive 3D needs hardware acceleration; every lesson and quiz works without it.</p>',
-    );
 filters.innerHTML = Object.keys(topics)
   .map((key) => `<button data-topic="${key}">${key}</button>`)
   .join("");
@@ -64,6 +50,7 @@ function select(key) {
     b.setAttribute("aria-pressed", String(b.dataset.topic === key));
   });
   panel.innerHTML = `<p class="eyebrow">FIELD GUIDE / ${key}</p><h2>${title}</h2><p>${copy}</p><a class="text-link" href="challenges.html">${action} ↗</a>`;
+  panel.insertAdjacentHTML("beforeend", `<div class="lesson-flow"><article><span>01</span><strong>Learn</strong><p>Understand why this everyday choice matters.</p></article><article><span>02</span><strong>Check your knowledge</strong><p>Answer a short question before taking action.</p></article><article><span>03</span><strong>Take it outside</strong><p>${esc(action)} and document what you actually did.</p></article></div><div class="lesson-action"><div><p class="eyebrow">READY TO ACT?</p><h3>Turn this lesson into a verified challenge.</h3><p>Learning alone never awards Eco Points. Approved evidence does.</p></div><a class="button button-dark" href="challenges.html">Browse ${esc(key)} challenges</a></div>`);
   const lesson = lessons.find((l) => l.id === key);
   if (lesson) {
     panel.insertAdjacentHTML(
@@ -94,9 +81,6 @@ function select(key) {
       }
     };
   }
-  world?.setTime(
-    key === "climate" ? "sunset" : key === "wildlife" ? "night" : "day",
-  );
 }
 filters
   .querySelectorAll("button")
@@ -116,4 +100,3 @@ api("/learn")
     );
     panel.querySelector("#retry-learn").onclick = () => location.reload();
   });
-addEventListener("pagehide", () => world?.destroy(), { once: true });

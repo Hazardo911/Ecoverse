@@ -5,14 +5,11 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 const links = [
-  ["dashboard", "Dashboard", "dashboard.html"],
-  ["explore", "Explore", "explore.html"],
+  ["dashboard", "My World", "dashboard.html"],
+  ["explore", "Discover", "explore.html"],
   ["challenges", "Challenges", "challenges.html"],
   ["community", "Community", "community.html"],
-  ["settings", "Settings", "settings.html"],
-  ["forest", "My Forest", "forest.html"],
-  ["impact", "Impact", "impact.html"],
-  ["leaderboard", "Leaderboard", "leaderboard.html"],
+  ["connect", "Connect", "connect.html"],
 ];
 const page = document.body.dataset.page;
 if (!document.querySelector('link[rel="manifest"]'))
@@ -48,7 +45,7 @@ document.addEventListener("click", async (event) => {
 });
 document.body.insertAdjacentHTML(
   "afterbegin",
-  `<a class="skip-link" href="#main">Skip to content</a><div class="scroll-progress"></div><header class="site-header"><nav aria-label="Main navigation"><a class="brand" href="index.html"><span class="brand-index">EV</span>ECOVERSE</a><button class="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="main-menu"><span></span><span></span></button><div class="nav-shell" id="main-menu"><div class="nav-links">${links.map(([id, name, href]) => `<a ${id === page ? 'aria-current="page"' : ""} href="${href}">${name}</a>`).join("")}</div><a class="nav-cta" href="auth.html" id="account-link">Start growing ↗</a></div></nav></header>`,
+  `<a class="skip-link" href="#main">Skip to content</a><div class="scroll-progress"></div><header class="site-header"><nav aria-label="Main navigation"><a class="brand" href="index.html"><img src="/ecoverse-mark.png" alt="" />ECOVERSE</a><button class="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="main-menu"><span></span><span></span></button><div class="nav-shell" id="main-menu"><div class="nav-links">${links.map(([id, name, href]) => `<a ${id === page ? 'aria-current="page"' : ""} href="${href}">${name}</a>`).join("")}</div><a class="nav-cta" href="auth.html" id="account-link">Start growing ↗</a></div></nav></header>`,
 );
 document.body.insertAdjacentHTML(
   "beforeend",
@@ -110,7 +107,7 @@ api("/auth/me")
   .catch((e) => {
     if (e.status === 401) {
       document.querySelector(".nav-links").innerHTML =
-        '<a href="explore.html">Explore</a><a href="index.html#idea">How it works</a><a href="challenges.html">Challenges</a><a href="about.html">About</a><a href="auth.html#login">Login</a>';
+        '<a href="dashboard.html">My World</a><a href="explore.html">Discover</a><a href="challenges.html">Challenges</a><a href="community.html">Community</a><a href="connect.html">Connect</a><a href="auth.html#login">Login</a>';
       document.querySelector("#account-link").textContent = "Start journey ↗";
     }
   });

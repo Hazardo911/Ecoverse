@@ -210,6 +210,34 @@ export function featureRoutes(auth, progress) {
   const router = Router();
   router.use(auth);
   router.use(featureContext);
+  router.get("/assessment", async (req, res) => {
+    const data = await readStore();
+    const payload = data.assessment || null;
+    res.json({ data: payload });
+  });
+  router.put("/assessment", async (req, res) => {
+    const input = z.object({
+      mobility: z.enum(["rarely", "sometimes", "often"]),
+      energy: z.enum(["rarely", "sometimes", "often"]),
+      water: z.enum(["rarely", "sometimes", "often"]),
+      waste: z.enum(["rarely", "sometimes", "often"]),
+      food: z.enum(["rarely", "sometimes", "often"]),
+      nature: z.enum(["rarely", "sometimes", "often"]),
+      shopping: z.enum(["rarely", "sometimes", "often"]),
+      motivation: z.enum(["learn", "routine", "community"]),
+    }).strict().parse(req.body);
+    const order = ["rarely", "sometimes", "often"], score = Object.fromEntries(
+      Object.entries(input).filter(([key]) => key !== "motivation").map(([key, value]) => [key, order.indexOf(value)]),
+    );
+    const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);
+    const strongest = ranked[0][0], opportunity = ranked.at(-1)[0];
+    const result = { ...input, score, strongest, opportunity, completedAt: new Date().toISOString() };
+    await changeStore((data) => {
+      data.assessment = result;
+      return result;
+    });
+    res.json({ data: result });
+  });
   router.get("/forest/game", async (req, res) => {
     const state = await progress(req.user.id);
     const result = await changeStore((data) => {

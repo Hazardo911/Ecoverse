@@ -30,7 +30,7 @@ form.onsubmit = async (e) => {
     };
     if (mode === "register") body.name = form.elements.name.value;
     await api("/auth/" + mode, { method: "POST", body });
-    location.href = "dashboard.html";
+    location.href = mode === "register" ? "assessment.html" : "dashboard.html";
   } catch (err) {
     document.querySelector("#auth-error").textContent = err.message;
     button.disabled = false;

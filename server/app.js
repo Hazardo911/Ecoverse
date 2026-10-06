@@ -29,6 +29,7 @@ import { featureRoutes } from "./features.js";
 import { learningRoutes } from "./learning.js";
 import { communityRoutes } from "./community.js";
 import { accountRoutes } from "./account.js";
+import { organizationRoutes } from "./organizations.js";
 const scrypt = promisify(scryptCallback),
   app = express(),
   production = process.env.NODE_ENV === "production";
@@ -264,6 +265,7 @@ app.get("/api/leaderboard", async (req, res) =>
   ),
 );
 app.use("/api/community", communityRoutes(auth));
+app.use("/api/connect", organizationRoutes());
 app.get("/api/public/forest/:id", async (req, res) => {
   const userId = idSchema.parse(req.params.id),
     [u] = await rows(
