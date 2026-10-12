@@ -31,7 +31,8 @@ yarn-error.log*
 !.env.example
 
 # deployment and generated files
-.vercel
+# Temporary document renders and extracted attachments
+/tmp/
 next-env.d.ts
 /dist/
 /.wrangler/
@@ -40,3 +41,5 @@ next-env.d.ts
 /.local/
 /data/
 /test-results/
+
+.vercel
